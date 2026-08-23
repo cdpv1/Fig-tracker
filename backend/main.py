@@ -3,7 +3,7 @@ import sqlite3
 from fastapi import FastAPI,HTTPException
 from backend.db import create_tables, get_figures_by_id, get_figures, delete_figure, upsert_figure
 from pydantic import BaseModel
-from backend.services.mfc import get_mfc_figure
+from backend.services.mfc import get_mfc_figure, get_owned_collection_ids
 
 app = FastAPI()
 create_tables()
@@ -78,5 +78,15 @@ def import_mfc_figure_endpoint(mfc_id: int):
         return {"message": f"Figure with MFC ID {mfc_id} imported successfully."}
     except HTTPException:
         raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@app.get("/api/mfc/{username}/collection")
+def get_mfc_collection_endpoint(username: str):
+    try:
+        collection = get_owned_collection_ids(username)
+        if not collection:
+            raise HTTPException(status_code=404, detail=f"No collection found for user {username}.")
+        return collection
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

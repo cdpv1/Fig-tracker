@@ -1,63 +1,21 @@
-from mfc_api import MFCClient
-from datetime import datetime
+from mfc_api import MFCClient, CollectionStatus
+from backend.services.helpers import normalize_mfc_item
 
+#retrieves a figure from MFC by its ID and normalizes the data
 def get_mfc_figure(mfc_id: int):
     with MFCClient() as client:
         item = client.get_item(mfc_id)
     return normalize_mfc_item(item)
 
-def normalize_mfc_item(item):
-    manufacturer = next(
-        (
-            company.name
-            for company in item.companies
-            if company.role == "Manufacturer"
-        ),
-        None
-    )
-
-    origin = (
-        item.origins[0].name
-        if item.origins
-        else None
-    )
-
-    release = (
-        item.releases[0]
-        if item.releases
-        else None
-    )
-    return {
-        "mfc_id": item.id,
-        "name": item.name,
-        "mfc_url": item.url,
-        "picture_url": item.picture,
-        "thumbnail_url": item.thumbnail,
-        "category": item.category_name,
-        "scale": item.scale,
-        "height_mm": item.height_mm,
-        "origin": origin,
-        "manufacturer": manufacturer,
-        "release_date": normalize_date(release.date) if release else None,
-        "barcode": release.barcode if release else None,
-        "msrp": release.price if release else None,
-        "currency": release.currency if release else None,
-        "rating": item.rating,
-    }
-    
-def normalize_date(date_str):
-    if date_str is None:
-        return None
-    formats = [
-        ("%m/%d/%Y", "%Y-%m-%d"),
-        ("%m/%Y", "%Y-%m"),
-    ]
-
-    for input_format, output_format in formats:
-        try:
-            parsed_date = datetime.strptime(date_str, input_format)
-            return parsed_date.strftime(output_format)
-        except ValueError:
-            continue
-
-    return None
+#retrieves the collection of figures from a user in MFC
+def get_owned_collection_ids(username: str):
+    ids = []
+    page = 1
+    with MFCClient() as client:
+        while True:
+            collection = client.get_collection(username, status=CollectionStatus.OWNED, page=page)
+            ids.extend([item.id for item in collection.items])
+            page += 1
+            if page > collection.pagination.total_pages:
+                break
+    return ids
