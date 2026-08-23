@@ -8,6 +8,8 @@ venv/
 
 #Local Environment Variables
 .env
+.env.local
+.env.*.local
 
 #Runtime data
 data/
