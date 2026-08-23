@@ -1,4 +1,5 @@
 from mfc_api import MFCClient
+from datetime import datetime
 
 def get_mfc_figure(mfc_id: int):
     with MFCClient() as client:
@@ -26,7 +27,6 @@ def normalize_mfc_item(item):
         if item.releases
         else None
     )
-
     return {
         "mfc_id": item.id,
         "name": item.name,
@@ -38,9 +38,18 @@ def normalize_mfc_item(item):
         "height_mm": item.height_mm,
         "origin": origin,
         "manufacturer": manufacturer,
-        "release_date": release.date if release else None,
+        "release_date": normalize_date(release.date) if release else None,
         "barcode": release.barcode if release else None,
         "msrp": release.price if release else None,
         "currency": release.currency if release else None,
         "rating": item.rating,
     }
+    
+def normalize_date(date_str):
+    print("NORMALIZE DATE CALLED:", date_str)
+    if date_str is None:
+        return None
+    try:
+        return datetime.strptime(date_str, "%m/%d/%Y").date().isoformat()
+    except ValueError:
+        return None

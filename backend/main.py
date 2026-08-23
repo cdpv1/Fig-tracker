@@ -69,7 +69,6 @@ def get_mfc_figure_endpoint(mfc_id: int):
         figure = get_mfc_figure(mfc_id)
         if figure is None:
             raise HTTPException(status_code=404, detail=f"Figure with MFC ID {mfc_id} not found.")
-        print(figure)
         return figure
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -82,7 +81,7 @@ def import_mfc_figure_endpoint(mfc_id: int):
             raise HTTPException(status_code=404, detail=f"Figure with MFC ID {mfc_id} not found.")
         
         # Insert or update the figure in the database
-        upsert_figure(figure['mfc_id'], figure['name'], figure.get('scale'))
+        upsert_figure(figure["mfc_id"], figure["name"], figure["mfc_url"], figure["picture_url"], figure["thumbnail_url"], figure["category"], figure["scale"], figure["height_mm"], figure["origin"], figure["manufacturer"], figure["release_date"], figure["barcode"], figure["msrp"], figure["currency"], figure["rating"])
         
         return {"message": f"Figure with MFC ID {mfc_id} imported successfully."}
     except Exception as e:

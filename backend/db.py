@@ -26,7 +26,19 @@ def create_tables():
             CREATE TABLE IF NOT EXISTS figures (
                 mfc_id INTEGER PRIMARY KEY,
                 name TEXT NOT NULL,
-                scale TEXT
+                mfc_url TEXT,
+                picture_url TEXT,
+                thumbnail_url TEXT,
+                category TEXT,
+                scale TEXT,
+                height_mm INTEGER,
+                origin TEXT,
+                manufacturer TEXT,
+                release_date TEXT,
+                barcode TEXT,
+                msrp REAL,
+                currency TEXT,
+                rating REAL
             )
             '''
         )
@@ -40,14 +52,14 @@ def create_tables():
 # Inserts a new figure into the figures table
 
 
-def insert_figure(mfc_id, name, scale):
+def insert_figure(mfc_id, name, mfc_url, picture_url, thumbnail_url, category, scale, height_mm, origin, manufacturer, release_date, barcode, msrp, currency, rating):
     conn = get_connection()
     cursor = conn.cursor()
     try:
         cursor.execute(
             '''
-            INSERT INTO figures (mfc_id, name, scale) VALUES (?, ?, ?)
-            ''', (mfc_id, name, scale))
+            INSERT INTO figures (mfc_id, name, mfc_url, picture_url, thumbnail_url, category, scale, height_mm, origin, manufacturer, release_date, barcode, msrp, currency, rating) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (mfc_id, name, mfc_url, picture_url, thumbnail_url, category, scale, height_mm, origin, manufacturer, release_date, barcode, msrp, currency, rating))
         conn.commit()
     except:
         conn.rollback()
@@ -129,15 +141,15 @@ def update_figure(figure_id, name, scale):
     finally:
         conn.close()
 
-def upsert_figure(mfc_id, name, scale):
+def upsert_figure(mfc_id, name, mfc_url, picture_url, thumbnail_url, category, scale, height_mm, origin, manufacturer, release_date, barcode, msrp, currency, rating):
     conn = get_connection()
     cursor = conn.cursor()
     try:
         cursor.execute(
             '''
-            INSERT INTO figures (mfc_id, name, scale) VALUES (?, ?, ?)
-            ON CONFLICT(mfc_id) DO UPDATE SET name=excluded.name, scale=excluded.scale
-            ''', (mfc_id, name, scale))
+            INSERT INTO figures (mfc_id, name, mfc_url, picture_url, thumbnail_url, category, scale, height_mm, origin, manufacturer, release_date, barcode, msrp, currency, rating) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(mfc_id) DO UPDATE SET name=excluded.name, mfc_url=excluded.mfc_url, picture_url=excluded.picture_url, thumbnail_url=excluded.thumbnail_url, category=excluded.category, scale=excluded.scale, height_mm=excluded.height_mm, origin=excluded.origin, manufacturer=excluded.manufacturer, release_date=excluded.release_date, barcode=excluded.barcode, msrp=excluded.msrp, currency=excluded.currency, rating=excluded.rating
+            ''', (mfc_id, name, mfc_url, picture_url, thumbnail_url, category, scale, height_mm, origin, manufacturer, release_date, barcode, msrp, currency, rating))
         conn.commit()
     except:
         conn.rollback()
