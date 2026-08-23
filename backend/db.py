@@ -1,5 +1,6 @@
 import sqlite3
 from pathlib import Path
+from backend.services.enums import FigureStatus
 
 # initialize the database path and create the directory if it doesn't exist
 DATABASE_PATH = Path("data/figures.db")
@@ -116,7 +117,7 @@ def upsert_figure(mfc_id, name, mfc_url, picture_url, thumbnail_url, category, s
     finally:
         conn.close()
         
-def upsert_collection(mfc_id, status):
+def upsert_collection(mfc_id, status: FigureStatus):
     conn = get_connection()
     cursor = conn.cursor()
     try:
@@ -124,7 +125,7 @@ def upsert_collection(mfc_id, status):
             '''
             INSERT INTO collection (mfc_id, status) VALUES (?, ?)
             ON CONFLICT(mfc_id) DO UPDATE SET status=excluded.status
-            ''', (mfc_id, status))
+            ''', (mfc_id, status.value))
         conn.commit()
     except:
         conn.rollback()
