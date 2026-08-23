@@ -1,16 +1,9 @@
 from fastapi import FastAPI
-from backend.db import create_tables
+from backend.db import create_tables, insert_figure, get_figures
 
 create_tables()
-
 app = FastAPI()
 
 @app.get("/api/figures")
-def get_figures():\
-    return [
-        {
-            "id":1,
-            "name":"test figure",
-            "scale":1/6
-        }
-    ]
+def get_figures_endpoint():
+    return get_figures()
