@@ -128,3 +128,19 @@ def update_figure(figure_id, name, scale):
         raise
     finally:
         conn.close()
+
+def upsert_figure(mfc_id, name, scale):
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            '''
+            INSERT INTO figures (mfc_id, name, scale) VALUES (?, ?, ?)
+            ON CONFLICT(mfc_id) DO UPDATE SET name=excluded.name, scale=excluded.scale
+            ''', (mfc_id, name, scale))
+        conn.commit()
+    except:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
