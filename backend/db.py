@@ -16,7 +16,6 @@ def get_connection():
 
 # Creates the figures table if it doesn't exist
 
-
 def create_tables():
     conn = get_connection()
     cursor = conn.cursor()
@@ -49,26 +48,7 @@ def create_tables():
     finally:
         conn.close()
 
-# Inserts a new figure into the figures table
-
-
-def insert_figure(mfc_id, name, mfc_url, picture_url, thumbnail_url, category, scale, height_mm, origin, manufacturer, release_date, barcode, msrp, currency, rating):
-    conn = get_connection()
-    cursor = conn.cursor()
-    try:
-        cursor.execute(
-            '''
-            INSERT INTO figures (mfc_id, name, mfc_url, picture_url, thumbnail_url, category, scale, height_mm, origin, manufacturer, release_date, barcode, msrp, currency, rating) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (mfc_id, name, mfc_url, picture_url, thumbnail_url, category, scale, height_mm, origin, manufacturer, release_date, barcode, msrp, currency, rating))
-        conn.commit()
-    except:
-        conn.rollback()
-        raise
-    finally:
-        conn.close()
-
 # Retrieves all figures from the figures table
-
 
 def get_figures():
     conn = get_connection()
@@ -82,7 +62,6 @@ def get_figures():
         conn.close()
 
 # Retrieves a figure by its ID from the figures table
-
 
 def get_figures_by_id(figure_id):
     conn = get_connection()
@@ -104,37 +83,6 @@ def delete_figure(figure_id):
         cursor.execute('DELETE FROM figures WHERE mfc_id = ?', (figure_id,))
         conn.commit()
         # return cursor.rowcount > 0  # returns the number of rows deleted
-    except:
-        conn.rollback()
-        raise
-    finally:
-        conn.close()
-
-
-def update_figure(figure_id, name, scale):
-    conn = get_connection()
-    cursor = conn.cursor()
-    try:
-        cursor.execute(
-            '''
-            UPDATE figures SET name = ?, scale = ? WHERE mfc_id = ?
-            ''', (name, scale, figure_id))
-        conn.commit()
-        
-        if cursor.rowcount == 0:
-            return None
-
-        row = conn.execute(
-            """
-            SELECT mfc_id, name, scale
-            FROM figures
-            WHERE mfc_id = ?
-            """,
-            (figure_id,)
-        ).fetchone()
-
-        return dict(row)
-
     except:
         conn.rollback()
         raise

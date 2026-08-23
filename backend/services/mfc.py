@@ -46,10 +46,18 @@ def normalize_mfc_item(item):
     }
     
 def normalize_date(date_str):
-    print("NORMALIZE DATE CALLED:", date_str)
     if date_str is None:
         return None
-    try:
-        return datetime.strptime(date_str, "%m/%d/%Y").date().isoformat()
-    except ValueError:
-        return None
+    formats = [
+        ("%m/%d/%Y", "%Y-%m-%d"),
+        ("%m/%Y", "%Y-%m"),
+    ]
+
+    for input_format, output_format in formats:
+        try:
+            parsed_date = datetime.strptime(date_str, input_format)
+            return parsed_date.strftime(output_format)
+        except ValueError:
+            continue
+
+    return None
