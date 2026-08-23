@@ -132,3 +132,14 @@ def upsert_collection(mfc_id, status: FigureStatus):
         raise
     finally:
         conn.close()
+        
+def get_collection():
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        collection = cursor.execute('SELECT * FROM collection JOIN figures ON collection.mfc_id = figures.mfc_id').fetchall()
+        if not collection:
+            return []
+        return [dict(item) for item in collection]
+    finally:
+        conn.close()

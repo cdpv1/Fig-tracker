@@ -1,8 +1,7 @@
 from datetime import date
-import sqlite3
 from fastapi import FastAPI,HTTPException
 from mfc_api import MFCClient
-from backend.db import create_tables, get_figures_by_id, get_figures, delete_figure, upsert_collection, upsert_figure
+from backend.db import create_tables, get_collection, get_figures_by_id, get_figures, delete_figure, upsert_collection, upsert_figure
 from pydantic import BaseModel
 from backend.services.mfc import get_mfc_figure, get_owned_collection_ids
 from backend.services.sync import sync_owned_collection
@@ -27,10 +26,8 @@ class FigureBase(BaseModel):
     currency: str | None = None
     rating: float | None = None
 
-
 class FigureCreate(FigureBase):
     mfc_id: int
-
 
 class FigureUpdate(FigureBase):
     pass
@@ -58,6 +55,10 @@ def delete_figure_endpoint(mfc_id: int):
     if figure is None:
         raise HTTPException(status_code=404, detail=f"Figure with MFC ID {mfc_id} not found.")
     delete_figure(mfc_id)
+    
+@app.get("/api/collection")
+def get_collection_endpoint():
+    return get_collection()
 
 @app.get("/api/mfc/{mfc_id}")
 def get_mfc_figure_endpoint(mfc_id: int):

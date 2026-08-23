@@ -15,5 +15,5 @@ def get_owned_collection_ids(client: MFCClient, username: str):
         ids.extend([item.id for item in collection.items])
         page += 1
         if page > collection.pagination.total_pages:
-            break
-    return ids
+            break 
+    return {"ids": ids,"reported_owned_count": collection.stats.owned,"total_items_found": collection.pagination.total_items}
