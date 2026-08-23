@@ -1,7 +1,7 @@
 from datetime import date
 import sqlite3
 from fastapi import FastAPI,HTTPException
-from backend.db import create_tables, get_figures_by_id, insert_figure, get_figures, delete_figure, update_figure, upsert_figure
+from backend.db import create_tables, get_figures_by_id, get_figures, delete_figure, upsert_figure
 from pydantic import BaseModel
 from backend.services.mfc import get_mfc_figure
 

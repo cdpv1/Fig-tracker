@@ -12,6 +12,7 @@ def get_connection():
     conn = sqlite3.connect(DATABASE_PATH)
     # allows us to access columns by name instead of index
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
 # Creates the figures table if it doesn't exist
@@ -39,6 +40,16 @@ def create_tables():
                 currency TEXT,
                 rating REAL
             )
+            '''
+        )
+        
+        cursor.execute(
+            '''
+            CREATE TABLE IF NOT EXISTS collection (
+                mfc_id INTEGER PRIMARY KEY,
+                status TEXT NOT NULL,
+                FOREIGN KEY (mfc_id) REFERENCES figures (mfc_id)
+                )
             '''
         )
         conn.commit()
@@ -98,6 +109,22 @@ def upsert_figure(mfc_id, name, mfc_url, picture_url, thumbnail_url, category, s
             INSERT INTO figures (mfc_id, name, mfc_url, picture_url, thumbnail_url, category, scale, height_mm, origin, manufacturer, release_date, barcode, msrp, currency, rating) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(mfc_id) DO UPDATE SET name=excluded.name, mfc_url=excluded.mfc_url, picture_url=excluded.picture_url, thumbnail_url=excluded.thumbnail_url, category=excluded.category, scale=excluded.scale, height_mm=excluded.height_mm, origin=excluded.origin, manufacturer=excluded.manufacturer, release_date=excluded.release_date, barcode=excluded.barcode, msrp=excluded.msrp, currency=excluded.currency, rating=excluded.rating
             ''', (mfc_id, name, mfc_url, picture_url, thumbnail_url, category, scale, height_mm, origin, manufacturer, release_date, barcode, msrp, currency, rating))
+        conn.commit()
+    except:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+        
+def upsert_collection(mfc_id, status):
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            '''
+            INSERT INTO collection (mfc_id, status) VALUES (?, ?)
+            ON CONFLICT(mfc_id) DO UPDATE SET status=excluded.status
+            ''', (mfc_id, status))
         conn.commit()
     except:
         conn.rollback()
