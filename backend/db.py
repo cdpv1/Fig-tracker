@@ -24,7 +24,7 @@ def create_tables():
         cursor.execute(
             '''
             CREATE TABLE IF NOT EXISTS figures (
-                id INTEGER PRIMARY KEY,
+                mfc_id INTEGER PRIMARY KEY,
                 name TEXT NOT NULL,
                 scale TEXT
             )
@@ -40,14 +40,14 @@ def create_tables():
 # Inserts a new figure into the figures table
 
 
-def insert_figure(id, name, scale):
+def insert_figure(mfc_id, name, scale):
     conn = get_connection()
     cursor = conn.cursor()
     try:
         cursor.execute(
             '''
-            INSERT INTO figures (id, name, scale) VALUES (?, ?, ?)
-            ''', (id, name, scale))
+            INSERT INTO figures (mfc_id, name, scale) VALUES (?, ?, ?)
+            ''', (mfc_id, name, scale))
         conn.commit()
     except:
         conn.rollback()
@@ -77,7 +77,7 @@ def get_figures_by_id(figure_id):
     cursor = conn.cursor()
     try:
         row = cursor.execute(
-            'SELECT * FROM figures WHERE id = ?', (figure_id,)).fetchone()
+            'SELECT * FROM figures WHERE mfc_id = ?', (figure_id,)).fetchone()
         if row is None:
             return None
         return dict(row)
@@ -89,7 +89,7 @@ def delete_figure(figure_id):
     conn = get_connection()
     cursor = conn.cursor()
     try:
-        cursor.execute('DELETE FROM figures WHERE id = ?', (figure_id,))
+        cursor.execute('DELETE FROM figures WHERE mfc_id = ?', (figure_id,))
         conn.commit()
         # return cursor.rowcount > 0  # returns the number of rows deleted
     except:
@@ -105,7 +105,7 @@ def update_figure(figure_id, name, scale):
     try:
         cursor.execute(
             '''
-            UPDATE figures SET name = ?, scale = ? WHERE id = ?
+            UPDATE figures SET name = ?, scale = ? WHERE mfc_id = ?
             ''', (name, scale, figure_id))
         conn.commit()
         
@@ -114,9 +114,9 @@ def update_figure(figure_id, name, scale):
 
         row = conn.execute(
             """
-            SELECT id, name, scale
+            SELECT mfc_id, name, scale
             FROM figures
-            WHERE id = ?
+            WHERE mfc_id = ?
             """,
             (figure_id,)
         ).fetchone()
