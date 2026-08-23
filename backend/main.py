@@ -7,15 +7,30 @@ from backend.services.mfc import get_mfc_figure
 app = FastAPI()
 create_tables()
 
-#Figure model for creating new figures
-class FigureCreate(BaseModel):
+#Figure models for creating new figures
+class FigureBase(BaseModel):
+    name: str
+    mfc_url: str | None = None
+    picture_url: str | None = None
+    thumbnail_url: str | None = None
+    category: str | None = None
+    scale: str | None = None
+    height_mm: int | None = None
+    origin: str | None = None
+    manufacturer: str | None = None
+    release_date: str | None = None
+    barcode: str | None = None
+    msrp: float | None = None
+    currency: str | None = None
+    rating: float | None = None
+
+
+class FigureCreate(FigureBase):
     mfc_id: int
-    name: str
-    scale: str | None = None
-    
-class FigureUpdate(BaseModel):
-    name: str
-    scale: str | None = None
+
+
+class FigureUpdate(FigureBase):
+    pass
     
 # Get all figures
 @app.get("/api/figures")
@@ -37,7 +52,7 @@ def get_figure_by_id_endpoint(mfc_id: int):
 @app.post("/api/figures", status_code=201)
 def create_figure_endpoint(figure: FigureCreate):
     try:
-        insert_figure(figure.mfc_id, figure.name, figure.scale)
+        insert_figure(figure.mfc_id, figure.name, figure.scale, figure.mfc_url, figure.picture_url, figure.thumbnail_url, figure.category, figure.height_mm, figure.origin, figure.manufacturer, figure.release_date, figure.barcode, figure.msrp, figure.currency, figure.rating)
     except sqlite3.IntegrityError:
         raise HTTPException(status_code=409, detail=f"Figure with MFC ID {figure.mfc_id} already exists.")
     return figure
@@ -59,7 +74,7 @@ def update_figure_endpoint(mfc_id: int, figure: FigureUpdate):
         raise HTTPException(status_code=404, detail=f"Figure with MFC ID {mfc_id} not found.")
     
     # Call the update_figure function from db.py
-    updated_figure = update_figure(mfc_id, figure.name, figure.scale)
+    updated_figure = update_figure(mfc_id, figure.name, figure.scale, figure.mfc_url, figure.picture_url, figure.thumbnail_url, figure.category, figure.height_mm, figure.origin, figure.manufacturer, figure.release_date, figure.barcode, figure.msrp, figure.currency, figure.rating)
     
     return updated_figure
 
