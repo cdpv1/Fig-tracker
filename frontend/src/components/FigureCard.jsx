@@ -7,10 +7,10 @@ import {
     Stack,
     Box
 } from '@mantine/core'
-function FigureCard({ figure }) {
+function FigureCard({ figure, onClick }) {
 
     return (
-        <Card shadow="sm" padding="lg" radius="md" withBorder h="100%">
+        <Card className="figure-card" shadow="sm" padding="lg" radius="md" withBorder h="100%" target="_blank" onClick={onClick} style={{ cursor: 'pointer' }}>
             <Card.Section>
                 <Box h={240} p="md">
                     <Image src={figure.picture_url} alt={figure.name} h="100%" w="100%" fit="contain"/>
