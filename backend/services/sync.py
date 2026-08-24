@@ -1,5 +1,5 @@
 from backend.services.mfc import get_owned_collection_ids, get_mfc_figure
-from backend.db import upsert_figure, upsert_collection
+from backend.db import upsert_figure, upsert_collection_status
 from backend.services.enums import FigureStatus
 from mfc_api import MFCClient
 import time
@@ -15,7 +15,7 @@ def sync_owned_collection(username : str):
                 try:
                     figure = get_mfc_figure(client, mfc_id)
                     upsert_figure(**figure)
-                    upsert_collection(mfc_id, FigureStatus.OWNED)
+                    upsert_collection_status(mfc_id, FigureStatus.OWNED)
                     processed_ids += 1
                     time.sleep(.2)  # Sleep for 0.2 seconds to avoid hitting the rate limit
                     break  # Exit the retry loop if successful

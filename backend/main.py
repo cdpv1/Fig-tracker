@@ -1,10 +1,11 @@
 from datetime import date
 from fastapi import FastAPI,HTTPException
 from mfc_api import MFCClient
-from backend.db import create_tables, get_collection, get_figures_by_id, get_figures, delete_figure, upsert_collection, upsert_figure
+from backend.db import create_tables, get_collection, get_figures_by_id, get_figures, delete_figure, update_collection, upsert_figure
 from pydantic import BaseModel
 from backend.services.mfc import get_mfc_figure, get_owned_collection_ids
 from backend.services.sync import sync_owned_collection
+from backend.services.enums import FigureStatus
 
 app = FastAPI()
 create_tables()
@@ -31,6 +32,18 @@ class FigureCreate(FigureBase):
 
 class FigureUpdate(FigureBase):
     pass
+
+class CollectionUpdate(BaseModel):
+    status: FigureStatus | None = None
+    purchase_price: float | None = None
+    purchase_currency: str | None = None
+    purchase_store: str | None = None
+    purchase_date: str | None = None
+    item_condition: str | None = None
+    box_condition: str | None = None
+    displayed: bool | None = None
+    display_location: str | None = None
+    notes: str | None = None
     
 # Get all figures
 @app.get("/api/figures")
@@ -55,11 +68,24 @@ def delete_figure_endpoint(mfc_id: int):
     if figure is None:
         raise HTTPException(status_code=404, detail=f"Figure with MFC ID {mfc_id} not found.")
     delete_figure(mfc_id)
-    
+
+#Get the collection of figures    
 @app.get("/api/collection")
 def get_collection_endpoint():
     return get_collection()
 
+@app.patch("/api/collection/{mfc_id}")
+def update_collection_endpoint(mfc_id: int, updates: CollectionUpdate):
+    updates = updates.model_dump(exclude_unset=True)
+    if not updates:
+        raise HTTPException(status_code=400, detail="No updates provided.")
+    if "status" in updates and updates["status"] is not None:
+        updates["status"] = updates["status"].value
+    updated_collection = update_collection(mfc_id, updates)
+    if updated_collection is None:
+        raise HTTPException(status_code=404, detail=f"Collection with MFC ID {mfc_id} not found.")
+    return updated_collection
+    
 @app.get("/api/mfc/{mfc_id}")
 def get_mfc_figure_endpoint(mfc_id: int):
     try:

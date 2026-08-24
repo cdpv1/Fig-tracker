@@ -49,6 +49,17 @@ def create_tables():
             CREATE TABLE IF NOT EXISTS collection (
                 mfc_id INTEGER PRIMARY KEY,
                 status TEXT NOT NULL,
+                purchase_price REAL,
+                purchase_currency TEXT,
+                purchase_store TEXT,
+                purchase_date TEXT,
+                item_condition TEXT,
+                box_condition TEXT,
+                displayed INTEGER NOT NULL DEFAULT 0,
+                display_location TEXT,
+                notes TEXT,
+                added_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (mfc_id) REFERENCES figures (mfc_id)
                 )
             '''
@@ -117,7 +128,7 @@ def upsert_figure(mfc_id, name, mfc_url, picture_url, thumbnail_url, category, s
     finally:
         conn.close()
         
-def upsert_collection(mfc_id, status: FigureStatus):
+def upsert_collection_status(mfc_id, status: FigureStatus):
     conn = get_connection()
     cursor = conn.cursor()
     try:
@@ -141,5 +152,42 @@ def get_collection():
         if not collection:
             return []
         return [dict(item) for item in collection]
+    finally:
+        conn.close()
+
+def update_collection(mfc_id, updates:dict):
+    conn = get_connection()
+    cursor = conn.cursor()
+    allowed_fields = {
+        "status",
+        "purchase_price",
+        "purchase_currency",
+        "purchase_store",
+        "purchase_date",
+        "item_condition",
+        "box_condition",
+        "displayed",
+        "display_location",
+        "notes",
+    }
+    try:
+        set_clauses = []
+        values = []
+        for field, value in updates.items():
+            if field not in allowed_fields:
+                raise ValueError(f"Invalid collection field: {field}")
+            set_clauses.append(f"{field} = ?")
+            values.append(value)
+        values.append(mfc_id)
+        sql = f"UPDATE collection SET {', '.join(set_clauses)}, updated_at = CURRENT_TIMESTAMP WHERE mfc_id = ?"
+        cursor.execute(sql, values)
+        if cursor.rowcount == 0:
+            return None  # No rows updated, figure not found
+        conn.commit()
+        row = cursor.execute('SELECT * FROM collection WHERE mfc_id = ?', (mfc_id,)).fetchone()
+        return dict(row)
+    except:
+        conn.rollback()
+        raise
     finally:
         conn.close()
