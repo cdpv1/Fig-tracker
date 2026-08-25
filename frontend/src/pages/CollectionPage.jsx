@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
 import FigureCard from '../components/FigureCard.jsx'
 import { Container, SimpleGrid, Title } from '@mantine/core'
-import FigureModal from '../components/FigureModal'
+
+// import FigureModal from '../components/FigureModal'
 function CollectionPage() {
     const [collection, setCollection] = useState([])
-    const [selectedFigure, setSelectedFigure] = useState(null)
+
+    // const [selectedFigure, setSelectedFigure] = useState(null)
 
     useEffect(() => {
         fetch('/api/collection')
@@ -18,7 +20,7 @@ function CollectionPage() {
             <Title order={1} mb="lg">Fig Tracker</Title>
             <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 4, xl: 8 }} spacing="lg">
                 {collection.map((figure) => (
-                    <FigureCard key={figure.mfc_id} figure={figure} onClick={() => setSelectedFigure(figure)} />
+                    <FigureCard key={figure.mfc_id} figure={figure} />
                 ))}
             </SimpleGrid>
             {/* <FigureModal selectedFigure={selectedFigure} opened={selectedFigure !== null} onClose={() => setSelectedFigure(null)}></FigureModal> */}

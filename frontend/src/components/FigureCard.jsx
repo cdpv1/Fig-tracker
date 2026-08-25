@@ -7,13 +7,14 @@ import {
     Stack,
     Box
 } from '@mantine/core'
-function FigureCard({ figure, onClick }) {
-
+import { useNavigate } from 'react-router-dom'
+function FigureCard({ figure }) {
+    const navigate = useNavigate()
     return (
-        <Card className="figure-card" shadow="sm" padding="lg" radius="md" withBorder h="100%" target="_blank" onClick={onClick} style={{ cursor: 'pointer' }}>
+        <Card className="figure-card" shadow="sm" padding="lg" radius="md" withBorder h="100%" target="_blank" onClick={() => navigate(`/figures/${figure.mfc_id}`)} style={{ cursor: 'pointer' }}>
             <Card.Section>
                 <Box h={240} p="md">
-                    <Image src={figure.picture_url} alt={figure.name} h="100%" w="100%" fit="contain"/>
+                    <Image src={figure.picture_url} alt={figure.name} h="100%" w="100%" fit="contain" />
                 </Box>
             </Card.Section>
 
