@@ -17,7 +17,7 @@ function FigureCard({ figure, onClick }) {
                 </Box>
             </Card.Section>
 
-            <Stack gap="xs" mt="md">
+            <Stack gap="sm">
                 <Text fw={600} lineClamp={2}>{figure.name}</Text>
                 <Text size="sm" c="dimmed">{figure.manufacturer || 'Unknown manufacturer'}</Text>
                 <Group gap="xs" mt="xs">
