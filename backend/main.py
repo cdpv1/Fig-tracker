@@ -1,7 +1,7 @@
 from datetime import date
 from fastapi import FastAPI,HTTPException
 from mfc_api import MFCClient
-from backend.db import create_tables, get_collection, get_figures_by_id, get_figures, delete_figure, update_collection, upsert_figure
+from backend.db import create_tables, get_collection, get_collection_by_id, get_figures_by_id, get_figures, delete_figure, update_collection, upsert_figure
 from pydantic import BaseModel
 from backend.services.mfc import get_mfc_figure, get_owned_collection_ids
 from backend.services.sync import sync_owned_collection
@@ -73,6 +73,13 @@ def delete_figure_endpoint(mfc_id: int):
 @app.get("/api/collection")
 def get_collection_endpoint():
     return get_collection()
+
+@app.get("/api/collection/{mfc_id}")
+def get_collection_by_id_endpoint(mfc_id :int):
+    figure = get_collection_by_id(mfc_id)
+    if figure is None:
+            raise HTTPException(status_code=404, detail=f"Figure with MFC ID {mfc_id} not found.")
+    return figure
 
 @app.patch("/api/collection/{mfc_id}")
 def update_collection_endpoint(mfc_id: int, updates: CollectionUpdate):

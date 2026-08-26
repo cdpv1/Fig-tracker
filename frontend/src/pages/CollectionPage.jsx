@@ -17,7 +17,6 @@ function CollectionPage() {
 
     return (
         <Container fluid>
-            <Title order={1} mb="lg">Fig Tracker</Title>
             <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 4, xl: 8 }} spacing="lg">
                 {collection.map((figure) => (
                     <FigureCard key={figure.mfc_id} figure={figure} />

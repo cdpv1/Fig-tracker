@@ -18,6 +18,7 @@ def get_connection():
 
 # Creates the figures table if it doesn't exist
 
+
 def create_tables():
     conn = get_connection()
     cursor = conn.cursor()
@@ -43,7 +44,7 @@ def create_tables():
             )
             '''
         )
-        
+
         cursor.execute(
             '''
             CREATE TABLE IF NOT EXISTS collection (
@@ -73,6 +74,7 @@ def create_tables():
 
 # Retrieves all figures from the figures table
 
+
 def get_figures():
     conn = get_connection()
     cursor = conn.cursor()
@@ -85,6 +87,7 @@ def get_figures():
         conn.close()
 
 # Retrieves a figure by its ID from the figures table
+
 
 def get_figures_by_id(figure_id):
     conn = get_connection()
@@ -112,6 +115,7 @@ def delete_figure(figure_id):
     finally:
         conn.close()
 
+
 def upsert_figure(mfc_id, name, mfc_url, picture_url, thumbnail_url, category, scale, height_mm, origin, manufacturer, release_date, barcode, msrp, currency, rating):
     conn = get_connection()
     cursor = conn.cursor()
@@ -127,7 +131,8 @@ def upsert_figure(mfc_id, name, mfc_url, picture_url, thumbnail_url, category, s
         raise
     finally:
         conn.close()
-        
+
+
 def upsert_collection_status(mfc_id, status: FigureStatus):
     conn = get_connection()
     cursor = conn.cursor()
@@ -143,19 +148,34 @@ def upsert_collection_status(mfc_id, status: FigureStatus):
         raise
     finally:
         conn.close()
-        
+
+
 def get_collection():
     conn = get_connection()
     cursor = conn.cursor()
     try:
-        collection = cursor.execute('SELECT * FROM collection JOIN figures ON collection.mfc_id = figures.mfc_id').fetchall()
+        collection = cursor.execute(
+            'SELECT c.mfc_id, f.name, f.picture_url, f.manufacturer, f.category, f.scale, f.height_mm, c.status FROM collection c JOIN figures f ON c.mfc_id = f.mfc_id').fetchall()
         if not collection:
             return []
         return [dict(item) for item in collection]
     finally:
         conn.close()
+        
+def get_collection_by_id(mfc_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        figure = cursor.execute(
+            'SELECT * FROM collection c JOIN figures f ON c.mfc_id = f.mfc_id WHERE c.mfc_id = ?' ,(mfc_id,)
+        ).fetchone()
+        return figure
+    finally:
+        conn.close()
+        
 
-def update_collection(mfc_id, updates:dict):
+
+def update_collection(mfc_id, updates: dict):
     conn = get_connection()
     cursor = conn.cursor()
     allowed_fields = {
@@ -184,7 +204,8 @@ def update_collection(mfc_id, updates:dict):
         if cursor.rowcount == 0:
             return None  # No rows updated, figure not found
         conn.commit()
-        row = cursor.execute('SELECT * FROM collection WHERE mfc_id = ?', (mfc_id,)).fetchone()
+        row = cursor.execute(
+            'SELECT * FROM collection WHERE mfc_id = ?', (mfc_id,)).fetchone()
         return dict(row)
     except:
         conn.rollback()
