@@ -5,10 +5,14 @@ def normalize_mfc_item(item):
         (
             company.name
             for company in item.companies
-            if company.role == "Manufacturer"
+            if (company.role or "").strip().casefold() == "manufacturer"
         ),
-        None
+        None,
     )
+    if manufacturer is None and item.companies:
+        manufacturer = item.companies[0].name
+    if manufacturer is None:
+        manufacturer = "Unknown"
 
     origin = (
         item.origins[0].name
