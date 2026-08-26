@@ -1,3 +1,4 @@
+import { Container, Divider, Grid, Group, Stack, Title, Text, Badge, Paper, Image, Button } from "@mantine/core"
 import { useEffect, useState } from "react"
 import { useParams } from "react-router-dom"
 
@@ -11,7 +12,7 @@ function FigurePage() {
         ? `${figure.scale} Scale`
         : figure?.height_mm
             ? `${figure.height_mm} mm`
-            : 'Size unknown'
+            : "—"
 
     useEffect(() => {
         fetch(`/api/collection/${mfc_id}`)
@@ -46,23 +47,62 @@ function FigurePage() {
     }
 
     return (
-        <div>
-            <img src={figure.picture_url} alt={figure.name} />
-            <p>{figure.name}</p>
-            <p>{figure.manufacturer}</p>
-            <p>{figure.origin}</p>
-            <p>{figure.category}</p>
-            <p>{sizeDisplay}</p>
-            <p>{figure.release_date}</p>
-            <p>{figure.rating}</p>
-            <p>{figure.barcode}</p>
+        <Container size="xl">
+            <Paper shadow="xs" radius="md" p="xl" w="100%">
+                <Grid>
+                    <Grid.Col span={{ base: 12, md: 5 }}>
+                        <Image src={figure.picture_url} alt={figure.name} h={350} fit="contain" radius="md" />
+                    </Grid.Col>
+                    <Grid.Col span={{ base: 12, md: 7 }}>
+                        <Group>
+                            <Stack>
+                                <Title>{figure.name}</Title>
+                                <Text c="dimmed">{figure.manufacturer}</Text>
+                                <Group>
+                                    <Badge>{figure.category}</Badge>
+                                    <Badge>{figure.status}</Badge>
+                                </Group>
+                                <Stack>
+                                    <Group>
+                                        <Text c="dimmed">Origin</Text>
+                                        <Text>{figure.origin || "—"}</Text>
+                                    </Group>
+
+                                    <Group>
+                                        <Text c="dimmed">Size</Text>
+                                        <Text>{sizeDisplay || "—"}</Text>
+                                    </Group>
+
+                                    <Group>
+                                        <Text c="dimmed">Release</Text>
+                                        <Text>{figure.release_date || "—"}</Text>
+                                    </Group>
+
+                                    <Group>
+                                        <Text c="dimmed">Rating</Text>
+                                        <Text>{figure.rating ?? "—"}</Text>
+                                    </Group>
+
+                                    <Group>
+                                        <Text c="dimmed">Barcode</Text>
+                                        <Text>{figure.barcode || "—"}</Text>
+                                    </Group>
+                                </Stack>
+                            </Stack>
+                            <Button component="a" href={figure.mfc_url} target="_blank" rel="noopener noreferrer" fullWidth>Link to MFC</Button>
+                        </Group>
+
+                    </Grid.Col>
+                </Grid>
+            </Paper>
+            <Divider></Divider>
             <p>----------My Collection----------</p>
-            <p>{figure.status}</p>
+
             <p>{figure.purchase_price ? figure.purchase_price : "---"}</p>
             <p>{figure.store ? figure.store : "---"}</p>
             <p>{figure.condition ? figure.condition : "---"}</p>
             <p>{figure.notes ? figure.notes : "---"}</p>
-        </div>
+        </Container >
     )
 }
 
