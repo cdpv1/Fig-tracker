@@ -1,4 +1,4 @@
-import { Route, Routes } from 'react-router-dom'
+import { Route, Routes, Link } from 'react-router-dom'
 import './App.css'
 import CollectionPage from './pages/CollectionPage'
 import FigurePage from './pages/FigurePage'
@@ -9,7 +9,8 @@ function App() {
     <AppShell header={{ height: 60 }} padding="md">
       <AppShell.Header>
         <Group h="100%" px="md">
-          <Title order={2} p="md">Fig Tracker</Title>
+          <Title order={2} p="md" component={Link} to="/" style={{ textDecoration: 'none', color: 'inherit' }}
+          >Fig Tracker</Title>
         </Group>
       </AppShell.Header>
       <AppShell.Main>
