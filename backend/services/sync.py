@@ -35,7 +35,7 @@ def sync_owned_collection(username: str, progress_callback=None):
                             current_mfc_id=mfc_id,
                         )
                     # Sleep for 0.2 seconds to avoid hitting the rate limit
-                    time.sleep(1)
+                    time.sleep(.2)
                     break  # Exit the retry loop if successful
                 except Exception as e:
                     # Too Many Requests
