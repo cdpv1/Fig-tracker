@@ -1,11 +1,11 @@
 from datetime import date
 from fastapi import FastAPI, HTTPException, BackgroundTasks
-from mfc_api import MFCClient
+# from mfc_api import MFCClient
 from backend.database.db_setup import create_tables
 from backend.database.collection import get_collection, get_collection_by_id, update_collection
 from backend.database.figures import get_figure_by_id, get_figures, delete_figure, upsert_figure
 from pydantic import BaseModel
-from backend.services.mfc import get_mfc_figure, get_owned_collection_ids
+from backend.services.mfc import create_mfc_client, get_mfc_figure, get_owned_collection_ids
 from backend.services.sync import sync_owned_collection, create_sync_job, get_sync_job
 from backend.services.enums import FigureStatus
 from backend.config import MFC_USERNAME
@@ -139,7 +139,7 @@ def import_mfc_figure_endpoint(mfc_id: int):
 @app.get("/api/mfc/collection", tags=["MFC"])
 def get_mfc_collection_endpoint():
     try:
-        with MFCClient() as client:
+        with create_mfc_client() as client:
             collection = get_owned_collection_ids(client, MFC_USERNAME)
         if not collection:
             raise HTTPException(

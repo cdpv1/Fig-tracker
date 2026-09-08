@@ -1,8 +1,8 @@
-from backend.services.mfc import get_owned_collection_ids, get_mfc_figure
+from backend.services.mfc import create_mfc_client, get_owned_collection_ids, get_mfc_figure
 from backend.database.figures import upsert_figure 
 from backend.database.collection import upsert_collection_status
 from backend.services.enums import FigureStatus
-from mfc_api import MFCClient
+#  from mfc_api import MFCClient
 import time
 import uuid
 
@@ -11,7 +11,7 @@ sync_jobs = {}
 
 
 def sync_owned_collection(username: str, progress_callback=None):
-    with MFCClient() as client:
+    with create_mfc_client() as client:
         collection_data = get_owned_collection_ids(client, username)
         owned_ids = collection_data["ids"]
         processed_ids = 0

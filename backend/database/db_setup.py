@@ -7,11 +7,6 @@ def create_tables():
     conn = get_connection()
     cursor = conn.cursor()
     try:
-        cursor.execute(
-            '''
-            DROP TABLE IF EXISTS price_history;
-            '''
-        )
 
         cursor.execute(
             '''

@@ -17,3 +17,23 @@ def get_owned_collection_ids(client: MFCClient, username: str):
         if page > collection.pagination.total_pages:
             break 
     return {"ids": ids,"reported_owned_count": collection.stats.owned,"total_items_found": collection.pagination.total_items}
+
+import os
+
+from mfc_api import MFCClient
+from mfc_api.transport import Transport
+
+
+def create_mfc_client():
+    cookie_header = os.getenv("MFC_COOKIE_HEADER")
+
+    transport = Transport(
+        cache_ttl=0,
+    )
+
+    if cookie_header:
+        transport._session.headers.update({
+            "Cookie": cookie_header,
+        })
+
+    return MFCClient(transport=transport)
