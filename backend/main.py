@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from backend.services.mfc import get_mfc_figure, get_owned_collection_ids
 from backend.services.sync import sync_owned_collection, create_sync_job, get_sync_job
 from backend.services.enums import FigureStatus
-import uuid
+from backend.config import MFC_USERNAME
 
 app = FastAPI()
 create_tables()
@@ -52,8 +52,6 @@ class CollectionUpdate(BaseModel):
     notes: str | None = None
 
 # Get all figures
-
-
 @app.get("/api/figures")
 def get_figures_endpoint():
     figures = get_figures()
@@ -62,8 +60,6 @@ def get_figures_endpoint():
     return figures
 
 # Get a figure by ID
-
-
 @app.get("/api/figures/{mfc_id}")
 def get_figure_by_id_endpoint(mfc_id: int):
     figure = get_figures_by_id(mfc_id)
@@ -73,8 +69,6 @@ def get_figure_by_id_endpoint(mfc_id: int):
     return figure
 
 # Delete a figure by ID
-
-
 @app.delete("/api/figures/{mfc_id}", status_code=204)
 def delete_figure_endpoint(mfc_id: int):
     figure = get_figures_by_id(mfc_id)
@@ -84,13 +78,11 @@ def delete_figure_endpoint(mfc_id: int):
     delete_figure(mfc_id)
 
 # Get the collection of figures
-
-
 @app.get("/api/collection")
 def get_collection_endpoint():
     return get_collection()
 
-
+# Get collection info by MFC ID
 @app.get("/api/collection/{mfc_id}")
 def get_collection_by_id_endpoint(mfc_id: int):
     figure = get_collection_by_id(mfc_id)
@@ -99,7 +91,7 @@ def get_collection_by_id_endpoint(mfc_id: int):
             status_code=404, detail=f"Figure with MFC ID {mfc_id} not found.")
     return figure
 
-
+# Update collection info by MFC ID
 @app.patch("/api/collection/{mfc_id}")
 def update_collection_endpoint(mfc_id: int, updates: CollectionUpdate):
     updates = updates.model_dump(exclude_unset=True)
@@ -113,8 +105,8 @@ def update_collection_endpoint(mfc_id: int, updates: CollectionUpdate):
             status_code=404, detail=f"Collection with MFC ID {mfc_id} not found.")
     return updated_collection
 
-
-@app.get("/api/mfc/{mfc_id}")
+# Get a figure from MFC by ID
+@app.get("/api/mfc/figure/{mfc_id}")
 def get_mfc_figure_endpoint(mfc_id: int):
     try:
         figure = get_mfc_figure(mfc_id)
@@ -125,8 +117,8 @@ def get_mfc_figure_endpoint(mfc_id: int):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
-@app.post("/api/mfc/{mfc_id}/import", status_code=200)
+# Import a figure from MFC by ID
+@app.post("/api/mfc/figure/{mfc_id}/import", status_code=200)
 def import_mfc_figure_endpoint(mfc_id: int):
     try:
         figure = get_mfc_figure(mfc_id)
@@ -141,30 +133,27 @@ def import_mfc_figure_endpoint(mfc_id: int):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
-@app.get("/api/mfc/{username}/collection")
-def get_mfc_collection_endpoint(username: str):
+# Get the user's owned collection from MFC
+@app.get("/api/mfc/collection")
+def get_mfc_collection_endpoint():
     try:
         with MFCClient() as client:
-            collection = get_owned_collection_ids(client, username)
+            collection = get_owned_collection_ids(client, MFC_USERNAME)
         if not collection:
             raise HTTPException(
-                status_code=404, detail=f"No collection found for user {username}.")
+                status_code=404, detail=f"No collection found for user {MFC_USERNAME}.")
         return collection
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
-@app.post("/api/mfc/{username}/collection/sync", status_code=200)
-def start_collection_sync(
-    username: str,
-    background_tasks: BackgroundTasks,
-):
-    job_id = create_sync_job(username, background_tasks)
+# Start a background task to sync the user's owned collection from MFC
+@app.post("/api/mfc/collection/sync", status_code=200)
+def start_collection_sync(background_tasks: BackgroundTasks):
+    job_id = create_sync_job(MFC_USERNAME, background_tasks)
 
     return {"job_id": job_id}
 
-
+# Get the status of a sync job
 @app.get("/api/sync/{job_id}")
 def get_sync_status(job_id: str):
     job = get_sync_job(job_id)

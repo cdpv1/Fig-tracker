@@ -32,7 +32,7 @@ function CollectionPage() {
         setSyncTotal(0)
         setSyncError(null)
         try {
-            const response = await fetch('/api/mfc/cdpv3/collection/sync', {
+            const response = await fetch('/api/mfc/collection/sync', {
                 method: 'POST',
             })
 
