@@ -1,5 +1,6 @@
 from backend.services.mfc import get_owned_collection_ids, get_mfc_figure
-from backend.db import upsert_figure, upsert_collection_status
+from backend.database.figures import upsert_figure 
+from backend.database.collection import upsert_collection_status
 from backend.services.enums import FigureStatus
 from mfc_api import MFCClient
 import time

@@ -1,7 +1,9 @@
 from datetime import date
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from mfc_api import MFCClient
-from backend.db import create_tables, get_collection, get_collection_by_id, get_figures_by_id, get_figures, delete_figure, update_collection, upsert_figure
+from backend.database.db_setup import create_tables
+from backend.database.collection import get_collection, get_collection_by_id, update_collection
+from backend.database.figures import get_figures_by_id, get_figures, delete_figure, upsert_figure
 from pydantic import BaseModel
 from backend.services.mfc import get_mfc_figure, get_owned_collection_ids
 from backend.services.sync import sync_owned_collection, create_sync_job, get_sync_job
@@ -52,7 +54,7 @@ class CollectionUpdate(BaseModel):
     notes: str | None = None
 
 # Get all figures
-@app.get("/api/figures")
+@app.get("/api/figures", tags=["Figures"])
 def get_figures_endpoint():
     figures = get_figures()
     if not figures:
@@ -60,7 +62,7 @@ def get_figures_endpoint():
     return figures
 
 # Get a figure by ID
-@app.get("/api/figures/{mfc_id}")
+@app.get("/api/figures/{mfc_id}", tags=["Figures"])
 def get_figure_by_id_endpoint(mfc_id: int):
     figure = get_figures_by_id(mfc_id)
     if figure is None:
@@ -69,7 +71,7 @@ def get_figure_by_id_endpoint(mfc_id: int):
     return figure
 
 # Delete a figure by ID
-@app.delete("/api/figures/{mfc_id}", status_code=204)
+@app.delete("/api/figures/{mfc_id}", status_code=204, tags=["Figures"])
 def delete_figure_endpoint(mfc_id: int):
     figure = get_figures_by_id(mfc_id)
     if figure is None:
@@ -78,12 +80,12 @@ def delete_figure_endpoint(mfc_id: int):
     delete_figure(mfc_id)
 
 # Get the collection of figures
-@app.get("/api/collection")
+@app.get("/api/collection", tags=["Collection"])
 def get_collection_endpoint():
     return get_collection()
 
 # Get collection info by MFC ID
-@app.get("/api/collection/{mfc_id}")
+@app.get("/api/collection/{mfc_id}", tags=["Collection"])
 def get_collection_by_id_endpoint(mfc_id: int):
     figure = get_collection_by_id(mfc_id)
     if figure is None:
@@ -92,7 +94,7 @@ def get_collection_by_id_endpoint(mfc_id: int):
     return figure
 
 # Update collection info by MFC ID
-@app.patch("/api/collection/{mfc_id}")
+@app.patch("/api/collection/{mfc_id}", tags=["Collection"])
 def update_collection_endpoint(mfc_id: int, updates: CollectionUpdate):
     updates = updates.model_dump(exclude_unset=True)
     if not updates:
@@ -106,7 +108,7 @@ def update_collection_endpoint(mfc_id: int, updates: CollectionUpdate):
     return updated_collection
 
 # Get a figure from MFC by ID
-@app.get("/api/mfc/figure/{mfc_id}")
+@app.get("/api/mfc/figure/{mfc_id}", tags=["MFC"])
 def get_mfc_figure_endpoint(mfc_id: int):
     try:
         figure = get_mfc_figure(mfc_id)
@@ -118,7 +120,7 @@ def get_mfc_figure_endpoint(mfc_id: int):
         raise HTTPException(status_code=500, detail=str(e))
 
 # Import a figure from MFC by ID
-@app.post("/api/mfc/figure/{mfc_id}/import", status_code=200)
+@app.post("/api/mfc/figure/{mfc_id}/import", status_code=200, tags=["MFC"])
 def import_mfc_figure_endpoint(mfc_id: int):
     try:
         figure = get_mfc_figure(mfc_id)
@@ -134,7 +136,7 @@ def import_mfc_figure_endpoint(mfc_id: int):
         raise HTTPException(status_code=500, detail=str(e))
 
 # Get the user's owned collection from MFC
-@app.get("/api/mfc/collection")
+@app.get("/api/mfc/collection", tags=["MFC"])
 def get_mfc_collection_endpoint():
     try:
         with MFCClient() as client:
@@ -147,14 +149,14 @@ def get_mfc_collection_endpoint():
         raise HTTPException(status_code=500, detail=str(e))
 
 # Start a background task to sync the user's owned collection from MFC
-@app.post("/api/mfc/collection/sync", status_code=200)
+@app.post("/api/mfc/collection/sync", status_code=200, tags=["MFC"])
 def start_collection_sync(background_tasks: BackgroundTasks):
     job_id = create_sync_job(MFC_USERNAME, background_tasks)
 
     return {"job_id": job_id}
 
 # Get the status of a sync job
-@app.get("/api/sync/{job_id}")
+@app.get("/api/sync/{job_id}", tags=["MFC"])
 def get_sync_status(job_id: str):
     job = get_sync_job(job_id)
 
