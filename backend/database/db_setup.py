@@ -1,11 +1,18 @@
 from .connection import get_connection
 
-# Creates the figures table if it doesn't exist
+# Creates tables if they don't exist
+
 
 def create_tables():
     conn = get_connection()
     cursor = conn.cursor()
     try:
+        cursor.execute(
+            '''
+            DROP TABLE IF EXISTS price_history;
+            '''
+        )
+
         cursor.execute(
             '''
             CREATE TABLE IF NOT EXISTS figures (
@@ -57,16 +64,22 @@ def create_tables():
                 source TEXT NOT NULL,
                 price REAL NOT NULL,
                 currency TEXT NOT NULL,
-                item_Condition TEXT,
-                availibility TEXT,
+                item_condition TEXT,
+                availability TEXT,
                 listing_url TEXT,
                 
-                recorded at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                recorded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (mfc_id) REFERENCES figures (mfc_id)
                 )
             '''
-
         )
+
+        cursor.execute(
+            '''
+            CREATE INDEX IF NOT EXISTS idx_price_history_mfc_date ON price_history(mfc_id, recorded_at)
+            '''
+        )
+
         conn.commit()
     except:
         conn.rollback()

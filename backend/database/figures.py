@@ -17,7 +17,7 @@ def get_figures():
 # Retrieves a figure by its ID from the figures table
 
 
-def get_figures_by_id(figure_id):
+def get_figure_by_id(figure_id):
     conn = get_connection()
     cursor = conn.cursor()
     try:
@@ -28,6 +28,8 @@ def get_figures_by_id(figure_id):
         return dict(row)
     finally:
         conn.close()
+
+# deletes a figure by its ID from the figures table
 
 
 def delete_figure(figure_id):
@@ -42,6 +44,8 @@ def delete_figure(figure_id):
         raise
     finally:
         conn.close()
+
+# inserts or updates a figure in the figures table by ID
 
 
 def upsert_figure(mfc_id, name, mfc_url, picture_url, thumbnail_url, category, scale, height_mm, origin, manufacturer, release_date, barcode, msrp, currency, rating):

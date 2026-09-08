@@ -1,6 +1,9 @@
 from .connection import get_connection
 from backend.services.enums import FigureStatus
 
+# inserts or updates a figure's collection status in the collection table by ID
+
+
 def upsert_collection_status(mfc_id, status: FigureStatus):
     conn = get_connection()
     cursor = conn.cursor()
@@ -17,6 +20,8 @@ def upsert_collection_status(mfc_id, status: FigureStatus):
     finally:
         conn.close()
 
+# retrieves all figures in the collection table
+
 
 def get_collection():
     conn = get_connection()
@@ -30,6 +35,8 @@ def get_collection():
     finally:
         conn.close()
 
+# retrieves a figure's collection info by its ID from the collection table
+
 
 def get_collection_by_id(mfc_id):
     conn = get_connection()
@@ -42,6 +49,8 @@ def get_collection_by_id(mfc_id):
         return figure
     finally:
         conn.close()
+
+# updates a figure's collection info by its ID in the collection table
 
 
 def update_collection(mfc_id, updates: dict):

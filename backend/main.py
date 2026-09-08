@@ -3,7 +3,7 @@ from fastapi import FastAPI, HTTPException, BackgroundTasks
 from mfc_api import MFCClient
 from backend.database.db_setup import create_tables
 from backend.database.collection import get_collection, get_collection_by_id, update_collection
-from backend.database.figures import get_figures_by_id, get_figures, delete_figure, upsert_figure
+from backend.database.figures import get_figure_by_id, get_figures, delete_figure, upsert_figure
 from pydantic import BaseModel
 from backend.services.mfc import get_mfc_figure, get_owned_collection_ids
 from backend.services.sync import sync_owned_collection, create_sync_job, get_sync_job
@@ -64,7 +64,7 @@ def get_figures_endpoint():
 # Get a figure by ID
 @app.get("/api/figures/{mfc_id}", tags=["Figures"])
 def get_figure_by_id_endpoint(mfc_id: int):
-    figure = get_figures_by_id(mfc_id)
+    figure = get_figure_by_id(mfc_id)
     if figure is None:
         raise HTTPException(
             status_code=404, detail=f"Figure with MFC ID {mfc_id} not found.")
@@ -73,7 +73,7 @@ def get_figure_by_id_endpoint(mfc_id: int):
 # Delete a figure by ID
 @app.delete("/api/figures/{mfc_id}", status_code=204, tags=["Figures"])
 def delete_figure_endpoint(mfc_id: int):
-    figure = get_figures_by_id(mfc_id)
+    figure = get_figure_by_id(mfc_id)
     if figure is None:
         raise HTTPException(
             status_code=404, detail=f"Figure with MFC ID {mfc_id} not found.")
@@ -167,3 +167,9 @@ def get_sync_status(job_id: str):
         )
 
     return job
+
+@app.get("/api/prices/{mfc_id}", tags=["Prices"])
+def get_price_history_endpoint(mfc_id: int):
+    from backend.database.prices import get_price_history
+    price_history = get_price_history(mfc_id)
+    return price_history
