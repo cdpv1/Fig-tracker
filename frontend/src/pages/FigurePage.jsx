@@ -1,4 +1,4 @@
-import { Container, Divider, Grid, Group, Stack, Title, Text, Badge, Paper, Image, Button, Checkbox, TextInput, Textarea, NumberInput, Alert } from "@mantine/core"
+import { Container, Divider, Grid, Group, Stack, Title, Text, Badge, Paper, Image, Button, Checkbox, TextInput, Textarea, NumberInput, Alert, Table } from "@mantine/core"
 import { useForm } from '@mantine/form';
 import { DateInput } from '@mantine/dates';
 import { useEffect, useState } from "react"
@@ -12,6 +12,7 @@ function FigurePage() {
     const [editing, setEditing] = useState(false)
     const [saving, setSaving] = useState(false)
     const [saveError, setSaveError] = useState(null)
+    const [priceHistory, setPriceHistory] = useState([])
     const form = useForm({
         initialValues: {
             purchase_price: '',
@@ -141,6 +142,20 @@ function FigurePage() {
             })
             .finally(() => {
                 setLoading(false)
+            })
+
+        fetch(`/api/prices/${mfc_id}`)
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`)
+                }
+                return response.json()
+            })
+            .then((data) => {
+                setPriceHistory(data)
+            })
+            .catch((error) => {
+                console.error('Error fetching price history:', error)
             })
     }, [mfc_id])
 
@@ -292,6 +307,42 @@ function FigurePage() {
                                 <Text>{figure.notes || "—"}</Text>
                             </Group>
                         </Stack>
+                    )}
+                </Paper>
+                <Divider my="md" />
+                <Paper shadow="xs" radius="md" p="xl" w="100%">
+                    <Title order={2} mb="md">
+                        Price History
+                    </Title>
+
+                    {priceHistory.length === 0 ? (
+                        <Text c="dimmed">No price history yet.</Text>
+                    ) : (
+                        <Table>
+                            <Table.Thead>
+                                <Table.Tr>
+                                    <Table.Th>Source</Table.Th>
+                                    <Table.Th>Price</Table.Th>
+                                    <Table.Th>Condition</Table.Th>
+                                    <Table.Th>Availability</Table.Th>
+                                    <Table.Th>Recorded</Table.Th>
+                                </Table.Tr>
+                            </Table.Thead>
+
+                            <Table.Tbody>
+                                {priceHistory.map((record) => (
+                                    <Table.Tr key={record.id}>
+                                        <Table.Td>{record.source}</Table.Td>
+                                        <Table.Td>
+                                            {record.price} {record.currency}
+                                        </Table.Td>
+                                        <Table.Td>{record.item_condition || '—'}</Table.Td>
+                                        <Table.Td>{record.availability || '—'}</Table.Td>
+                                        <Table.Td>{record.recorded_at}</Table.Td>
+                                    </Table.Tr>
+                                ))}
+                            </Table.Tbody>
+                        </Table>
                     )}
                 </Paper>
             </Group >

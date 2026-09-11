@@ -62,7 +62,7 @@ def create_tables():
                 item_condition TEXT,
                 availability TEXT,
                 listing_url TEXT,
-                
+                external_product_id TEXT,
                 recorded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (mfc_id) REFERENCES figures (mfc_id)
                 )
