@@ -74,7 +74,28 @@ def create_tables():
             CREATE INDEX IF NOT EXISTS idx_price_history_mfc_date ON price_history(mfc_id, recorded_at)
             '''
         )
+        
+        cursor.execute(
+            '''
+            CREATE TABLE IF NOT EXISTS figure_enrichments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                mfc_id INTEGER NOT NULL,
+                field TEXT NOT NULL,
+                value TEXT NOT NULL,
+                source TEXT NOT NULL,
+                confidence TEXT NOT NULL DEFAULT 'unverified',
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (mfc_id) REFERENCES figures (mfc_id)
+                )
+            '''
+        )
 
+        cursor.execute(
+            '''
+            CREATE INDEX IF NOT EXISTS idx_enrichments_mfc_field ON figure_enrichments(mfc_id, field)
+            '''
+        )
+        
         conn.commit()
     except:
         conn.rollback()
