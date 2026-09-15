@@ -1,6 +1,8 @@
 import os
 from mfc_api import MFCClient, CollectionStatus
-from backend.services.helpers import normalize_mfc_item
+from mfc_api.parsers.item import ItemParser
+from mfc_api.urls import item as item_url
+from backend.services.helpers import normalize_mfc_item, _image_urls_from_html
 from mfc_api.transport import Transport
 from http.cookies import SimpleCookie
 from backend.config import MFC_COOKIE_HEADER
@@ -9,8 +11,25 @@ from backend.config import MFC_COOKIE_HEADER
 
 
 def get_mfc_figure(client: MFCClient, mfc_id: int):
-    item = client.get_item(mfc_id)
-    return normalize_mfc_item(item)
+    url = item_url(mfc_id)
+    html = client.transport.get(url)
+    item = ItemParser(html, url=url).parse()
+    # The page metadata can contain the full-size image even when the visible
+    # item-picture element is replaced by MFC's NSFW placeholder.
+    image_urls = _image_urls_from_html(html)
+    return normalize_mfc_item(item, image_urls=image_urls)
+
+
+def fetch_mfc_image(url: str):
+    transport = Transport(cache_ttl=0)
+    try:
+        if MFC_COOKIE_HEADER:
+            add_mfc_cookies(transport._session, MFC_COOKIE_HEADER)
+        response = transport._session.get(url, timeout=30)
+        response.raise_for_status()
+        return response.content, response.headers.get("content-type", "image/jpeg")
+    finally:
+        transport.close()
 
 # retrieves the collection of figures from a user in MFC
 

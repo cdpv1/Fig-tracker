@@ -7,9 +7,15 @@ import re
 from itertools import combinations
 
 BASE_URL = "https://www.hlj.com"
+MAX_SEARCH_QUERIES = 12
+_SEARCH_CACHE = {}
+_PRODUCT_CACHE = {}
 
 
 def get_hlj_product(product_url):
+    if product_url in _PRODUCT_CACHE:
+        return _PRODUCT_CACHE[product_url]
+
     response = requests.get(product_url, impersonate="chrome")
 
     response.raise_for_status()
@@ -35,7 +41,7 @@ def get_hlj_product(product_url):
         if availability:
             availability = availability.rsplit("/", 1)[-1]
 
-        return {
+        product = {
             "source": "HLJ",
             "name": data.get("name"),
             "barcode": data.get("gtin13"),
@@ -47,7 +53,10 @@ def get_hlj_product(product_url):
             "listing_url": offers.get("url") or product_url,
             "external_product_id": data.get("productID"),
         }
+        _PRODUCT_CACHE[product_url] = product
+        return product
 
+    _PRODUCT_CACHE[product_url] = None
     return None
 
 
@@ -56,7 +65,8 @@ def find_hlj_product(figure):
     name = (figure.get("name") or "").strip()
     manufacturer = (figure.get("manufacturer") or "").strip()
 
-    # Best case: exact barcode match
+    # Best case: exact barcode match. Keep this path to one search and cache
+    # product pages so later name matching does not request them again.
     if barcode:
         candidates = search_hlj(barcode)
 
@@ -76,9 +86,8 @@ def find_hlj_product(figure):
     if not name:
         return None
 
-    seen_skus = set()
-    best_candidate = None
-    best_score = 0
+    candidates_by_sku = {}
+    exact_candidate = None
 
     for query in build_hlj_search_queries(figure):
         print(f"Searching HLJ for: {query!r}")
@@ -86,63 +95,94 @@ def find_hlj_product(figure):
         candidates = search_hlj(query)
 
         for candidate in candidates:
-            if candidate["sku"] in seen_skus:
-                continue
-
-            seen_skus.add(candidate["sku"])
+            candidates_by_sku.setdefault(candidate["sku"], candidate)
 
             score = fuzz.token_set_ratio(
                 name,
                 candidate["name"],
             )
 
-            if score > best_score:
-                best_score = score
-                best_candidate = candidate
+            if score == 100 and exact_candidate is None:
+                exact_candidate = candidate
 
-            # Potential perfect match -- stop searching
-            if score == 100:
-                product = get_hlj_product(candidate["url"])
+        # Once a complete name query produces an exact candidate, later
+        # fallback queries are redundant and are usually the source of the
+        # slow, repetitive HLJ scans.
+        if exact_candidate is not None:
+            break
 
-                if not product:
-                    continue
+    ranked_candidates = sorted(
+        candidates_by_sku.values(),
+        key=lambda candidate: fuzz.token_set_ratio(name, candidate["name"]),
+        reverse=True,
+    )
 
-                # If both sides have manufacturer info, sanity-check it
-                product_manufacturer = (
-                    product.get("manufacturer") or ""
-                ).strip()
+    products = []
+    for candidate in ranked_candidates:
+        score = fuzz.token_set_ratio(name, candidate["name"])
+        if score < 85:
+            break
+        product = get_hlj_product(candidate["url"])
+        if product:
+            product["_match_score"] = score
+            products.append(product)
 
-                if (
-                    manufacturer
-                    and product_manufacturer
-                    and fuzz.ratio(
-                        manufacturer.lower(),
-                        product_manufacturer.lower(),
-                    ) < 80
-                ):
-                    continue
+    valid_products = [
+        product for product in products
+        if _manufacturer_matches(manufacturer, product)
+    ]
 
-                product["match_method"] = "name"
-                product["match_score"] = score
-
-                return product
+    if exact_candidate is not None:
+        exact_products = [
+            product for product in valid_products
+            if product["_match_score"] == 100
+        ]
+        if exact_products:
+            selected = exact_products[0]
+            selected["match_method"] = "name"
+            selected["match_score"] = 100
+            selected["barcode_evidence"] = _barcode_evidence(valid_products)
+            selected.pop("_match_score", None)
+            return selected
 
     # No perfect match, use the best result we found
-    if not best_candidate or best_score < 85:
+    if not valid_products:
         return None
 
-    product = get_hlj_product(best_candidate["url"])
+    selected = valid_products[0]
+    selected["match_method"] = "name"
+    selected["match_score"] = selected.pop("_match_score")
+    selected["barcode_evidence"] = _barcode_evidence(valid_products)
+    return selected
 
-    if not product:
-        return None
 
-    product["match_method"] = "name"
-    product["match_score"] = best_score
+def _manufacturer_matches(manufacturer, product):
+    product_manufacturer = (product.get("manufacturer") or "").strip()
+    return not (
+        manufacturer
+        and product_manufacturer
+        and fuzz.ratio(manufacturer.lower(), product_manufacturer.lower()) < 80
+    )
 
-    return product
+
+def _barcode_evidence(products):
+    evidence = {}
+    for product in products:
+        found_barcode = str(product.get("barcode") or "").strip()
+        if found_barcode:
+            evidence.setdefault(found_barcode, 0)
+            evidence[found_barcode] += 1
+    return [
+        {"barcode": found_barcode, "matches": matches}
+        for found_barcode, matches in evidence.items()
+    ]
 
 
 def search_hlj(query):
+    query = re.sub(r"\s+", " ", query).strip()
+    if query in _SEARCH_CACHE:
+        return _SEARCH_CACHE[query]
+
     response = requests.get(
         f"{BASE_URL}/search/",
         params={"Word": query},
@@ -200,6 +240,7 @@ def search_hlj(query):
             "url": product_url,
         })
 
+    _SEARCH_CACHE[query] = candidates
     return candidates
 
 
@@ -328,4 +369,7 @@ def build_hlj_search_queries(figure):
     for part in useful_parts:
         add_query(part)
 
-    return queries
+    # The broad word-by-word fallbacks are useful only as a last resort and
+    # cause a large number of near-duplicate requests. Keep the highest-signal
+    # queries generated first.
+    return queries[:MAX_SEARCH_QUERIES]

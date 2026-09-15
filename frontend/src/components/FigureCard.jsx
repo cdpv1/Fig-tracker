@@ -14,7 +14,7 @@ function FigureCard({ figure }) {
         <Card className="figure-card" shadow="sm" padding="lg" radius="md" withBorder h="100%" target="_blank" onClick={() => navigate(`/figures/${figure.mfc_id}`)} style={{ cursor: 'pointer' }}>
             <Card.Section>
                 <Box h={240} p="md">
-                    <Image src={figure.picture_url} alt={figure.name} h="100%" w="100%" fit="contain" />
+                    <Image src={`/api/mfc/image/${figure.mfc_id}?source=mfc-primary-v2`} alt={figure.name} h="100%" w="100%" fit="contain" loading="lazy" />
                 </Box>
             </Card.Section>
 

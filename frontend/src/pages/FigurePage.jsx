@@ -1,8 +1,9 @@
-import { Container, Divider, Grid, Group, Stack, Title, Text, Badge, Paper, Image, Button, Checkbox, TextInput, Textarea, NumberInput, Alert, Table } from "@mantine/core"
+import { ActionIcon, Container, Divider, Grid, Group, Stack, Title, Text, Badge, Paper, Image, Button, Checkbox, TextInput, Textarea, NumberInput, Alert, Table, Box, Modal } from "@mantine/core"
 import { useForm } from '@mantine/form';
 import { DateInput } from '@mantine/dates';
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useParams } from "react-router-dom"
+import {CaretLeftIcon, CaretRightIcon} from '@phosphor-icons/react';
 
 function FigurePage() {
     const { mfc_id } = useParams()
@@ -13,6 +14,10 @@ function FigurePage() {
     const [saving, setSaving] = useState(false)
     const [saveError, setSaveError] = useState(null)
     const [priceHistory, setPriceHistory] = useState([])
+    const [galleryImages, setGalleryImages] = useState([])
+    const [selectedImageIndex, setSelectedImageIndex] = useState(0)
+    const [imageModalOpened, setImageModalOpened] = useState(false)
+    const thumbnailRefs = useRef([])
     const form = useForm({
         initialValues: {
             purchase_price: '',
@@ -126,6 +131,12 @@ function FigurePage() {
             })
             .then((data) => {
                 setFigure(data)
+                try {
+                    setGalleryImages(JSON.parse(data.gallery_urls || '[]'))
+                } catch (galleryError) {
+                    console.error('Error parsing gallery images:', galleryError)
+                    setGalleryImages([])
+                }
                 form.setValues({
                     purchase_price: data.purchase_price ?? '',
                     purchase_date: data.purchase_date ?? '',
@@ -159,6 +170,14 @@ function FigurePage() {
             })
     }, [mfc_id])
 
+    useEffect(() => {
+        thumbnailRefs.current[selectedImageIndex]?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'nearest',
+            inline: 'nearest',
+        })
+    }, [selectedImageIndex])
+
     if (loading) {
         return <p>Loading figure...</p>
     }
@@ -171,13 +190,141 @@ function FigurePage() {
         return <p>Figure not found.</p>
     }
 
+    const imageCount = galleryImages.length + 1
+    const getGalleryImageUrl = (index) => {
+        const galleryUrl = galleryImages[index]
+        try {
+            return new URL(galleryUrl).hostname === 'myfigurecollection.net'
+                ? `/api/mfc/gallery-image/${figure.mfc_id}/${index}`
+                : galleryUrl
+        } catch {
+            return galleryUrl
+        }
+    }
+    const selectedImageUrl = selectedImageIndex === 0
+        ? `/api/mfc/image/${figure.mfc_id}?source=mfc-primary-v2`
+        : getGalleryImageUrl(selectedImageIndex - 1)
+    const showPreviousImage = () => {
+        setSelectedImageIndex((current) => (current - 1 + imageCount) % imageCount)
+    }
+    const showNextImage = () => {
+        setSelectedImageIndex((current) => (current + 1) % imageCount)
+    }
+    const hasPurchaseValue = (value) => (
+        value !== null
+        && value !== undefined
+        && (typeof value !== 'string' || value.trim() !== '')
+    )
+    const hasPurchaseDetails = [
+        figure.purchase_price,
+        figure.purchase_date,
+        figure.purchase_store,
+        figure.item_condition,
+        figure.box_condition,
+        figure.notes,
+    ].some(hasPurchaseValue)
+
     return (
         <Container size="xl">
             <Group>
                 <Paper shadow="xs" radius="md" p="xl" w="100%">
                     <Grid>
                         <Grid.Col span={{ base: 12, md: 5 }}>
-                            <Image src={figure.picture_url} alt={figure.name} h={350} fit="contain" radius="md" />
+                            <Box pos="relative">
+                                <Image
+                                    src={selectedImageUrl}
+                                    alt={figure.name}
+                                    h={350}
+                                    fit="contain"
+                                    radius="md"
+                                    onClick={() => setImageModalOpened(true)}
+                                    style={{ cursor: 'zoom-in' }}
+                                />
+                                {imageCount > 1 && (
+                                    <Box
+                                        pos="absolute"
+                                        top={0}
+                                        right={0}
+                                        bottom={0}
+                                        left={0}
+                                        px="sm"
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between',
+                                            pointerEvents: 'none',
+                                        }}
+                                    >
+                                        <ActionIcon
+                                            onClick={showPreviousImage}
+                                            aria-label="Show previous image"
+                                            variant="light"
+                                            radius="m"
+                                            size="lg"
+                                            opacity={0.7}
+                                            style={{ pointerEvents: 'auto' }}
+                                        >
+                                            <CaretLeftIcon size={32} />
+                                        </ActionIcon>
+                                        <ActionIcon
+                                            onClick={showNextImage}
+                                            aria-label="Show next image"
+                                            variant="light"
+                                            radius="m"
+                                            size="lg"
+                                            opacity={0.7}
+                                            style={{ pointerEvents: 'auto' }}
+                                        >
+                                            <CaretRightIcon size={32} />
+                                        </ActionIcon>
+                                    </Box>
+                                )}
+                            </Box>
+                            {galleryImages.length > 0 && (
+                                <div
+                                    style={{
+                                        display: 'flex',
+                                        gap: 'var(--mantine-spacing-xs)',
+                                        marginTop: 'var(--mantine-spacing-md)',
+                                        maxWidth: '100%',
+                                        overflowX: 'auto',
+                                        overflowY: 'hidden',
+                                        paddingBottom: 'var(--mantine-spacing-xs)',
+                                    }}
+                                >
+                                    {[null, ...galleryImages].map((imageUrl, index) => (
+                                        <Button
+                                            key={imageUrl || 'primary'}
+                                            ref={(element) => {
+                                                thumbnailRefs.current[index] = element
+                                            }}
+                                            variant="subtle"
+                                            p={0}
+                                            style={{
+                                                flex: '0 0 64px',
+                                                boxSizing: 'border-box',
+                                                border: selectedImageIndex === index
+                                                    ? '2px solid var(--mantine-color-blue-6)'
+                                                    : '2px solid transparent',
+                                            }}
+                                            w={64}
+                                            h={64}
+                                            onClick={() => setSelectedImageIndex(index)}
+                                            aria-label={`Show ${figure.name} image ${index + 1}`}
+                                        >
+                                            <Image
+                                                src={index === 0
+                                                    ? `/api/mfc/image/${figure.mfc_id}?source=mfc-primary-thumbnail`
+                                                    : getGalleryImageUrl(index - 1)}
+                                                alt=""
+                                                w={60}
+                                                h={60}
+                                                fit="cover"
+                                            />
+                                        </Button>
+                                    ))}
+                                </div>
+                            )}
                         </Grid.Col>
                         <Grid.Col span={{ base: 12, md: 7 }}>
                             <Group>
@@ -226,9 +373,13 @@ function FigurePage() {
                     <Group justify="space-between" align="center" mb="md">
                         <Group gap="sm" align="center">
                             <Title>My Collection</Title>
-                            <Badge mt={8} color={figure.displayed === 1 ? "blue" : "red"}>{figure.displayed === 1 ? "Displayed" : "Not Displayed"}</Badge>
+                            <Badge mt={8} color={figure.displayed === 1 ? "blue" : "grey"}>{figure.displayed === 1 ? "Displayed" : "Not Displayed"}</Badge>
                         </Group>
-                        {editing ? (<Button onClick={handleCancel} color="red">Cancel</Button>) : (<Button onClick={() => setEditing(true)}>Edit</Button>)}
+                        {editing ? (
+                            <Button onClick={handleCancel} color="red">Cancel</Button>
+                        ) : hasPurchaseDetails ? (
+                            <Button onClick={() => setEditing(true)}>Edit</Button>
+                        ) : null}
 
                     </Group>
                     {editing ? (
@@ -275,37 +426,49 @@ function FigurePage() {
                             </Group>
                             <Button fullWidth onClick={handleSave} loading={saving}>Save</Button>
                         </Stack>
+                    ) : !hasPurchaseDetails ? (
+                        <Group justify="space-between" align="center">
+                            <Text c="dimmed">No purchase details recorded.</Text>
+                            <Button variant="light" onClick={() => setEditing(true)}>Add details</Button>
+                        </Group>
                     ) : (
                         <Stack gap="md">
-                            <Group>
-                                <Text c="dimmed">Purchase Price</Text>
-                                <Text>{figure.purchase_price ?? "—"}</Text>
-                            </Group>
-
-                            <Group>
-                                <Text c="dimmed">Purchase Date</Text>
-                                <Text>{figure.purchase_date || "—"}</Text>
-                            </Group>
-
-                            <Group>
-                                <Text c="dimmed">Store</Text>
-                                <Text>{figure.purchase_store || "—"}</Text>
-                            </Group>
-
-                            <Group>
-                                <Text c="dimmed">Figure Condition</Text>
-                                <Text>{figure.item_condition || "—"}</Text>
-                            </Group>
-
-                            <Group>
-                                <Text c="dimmed">Box Condition</Text>
-                                <Text>{figure.box_condition || "—"}</Text>
-                            </Group>
-
-                            <Group>
-                                <Text c="dimmed">Notes</Text>
-                                <Text>{figure.notes || "—"}</Text>
-                            </Group>
+                            {hasPurchaseValue(figure.purchase_price) && (
+                                <Group>
+                                    <Text c="dimmed">Purchase Price</Text>
+                                    <Text>{figure.purchase_price}</Text>
+                                </Group>
+                            )}
+                            {hasPurchaseValue(figure.purchase_date) && (
+                                <Group>
+                                    <Text c="dimmed">Purchase Date</Text>
+                                    <Text>{figure.purchase_date}</Text>
+                                </Group>
+                            )}
+                            {hasPurchaseValue(figure.purchase_store) && (
+                                <Group>
+                                    <Text c="dimmed">Store</Text>
+                                    <Text>{figure.purchase_store}</Text>
+                                </Group>
+                            )}
+                            {hasPurchaseValue(figure.item_condition) && (
+                                <Group>
+                                    <Text c="dimmed">Figure Condition</Text>
+                                    <Text>{figure.item_condition}</Text>
+                                </Group>
+                            )}
+                            {hasPurchaseValue(figure.box_condition) && (
+                                <Group>
+                                    <Text c="dimmed">Box Condition</Text>
+                                    <Text>{figure.box_condition}</Text>
+                                </Group>
+                            )}
+                            {hasPurchaseValue(figure.notes) && (
+                                <Group>
+                                    <Text c="dimmed">Notes</Text>
+                                    <Text>{figure.notes}</Text>
+                                </Group>
+                            )}
                         </Stack>
                     )}
                 </Paper>
@@ -346,6 +509,62 @@ function FigurePage() {
                     )}
                 </Paper>
             </Group >
+            <Modal
+                opened={imageModalOpened}
+                onClose={() => setImageModalOpened(false)}
+                title={figure.name}
+                centered
+                size="xl"
+                overlayProps={{ backgroundOpacity: 0.75, blur: 3 }}
+            >
+                <Box pos="relative">
+                    <Image
+                        src={selectedImageUrl}
+                        alt={figure.name}
+                        h="min(75vh, 800px)"
+                        fit="contain"
+                    />
+                    {imageCount > 1 && (
+                        <Box
+                            pos="absolute"
+                            top={0}
+                            right={0}
+                            bottom={0}
+                            left={0}
+                            px="sm"
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                pointerEvents: 'none',
+                            }}
+                        >
+                            <ActionIcon
+                                onClick={showPreviousImage}
+                                aria-label="Show previous image"
+                                variant="default"
+                                radius="xl"
+                                size="lg"
+                                opacity={0.7}
+                                style={{ pointerEvents: 'auto' }}
+                            >
+                                ‹
+                            </ActionIcon>
+                            <ActionIcon
+                                onClick={showNextImage}
+                                aria-label="Show next image"
+                                variant="default"
+                                radius="xl"
+                                size="lg"
+                                opacity={0.7}
+                                style={{ pointerEvents: 'auto' }}
+                            >
+                                ›
+                            </ActionIcon>
+                        </Box>
+                    )}
+                </Box>
+            </Modal>
         </Container >
     )
 }

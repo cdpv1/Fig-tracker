@@ -29,6 +29,11 @@ def create_tables():
             )
             '''
         )
+        figure_columns = {
+            row[1] for row in cursor.execute("PRAGMA table_info(figures)")
+        }
+        if "gallery_urls" not in figure_columns:
+            cursor.execute("ALTER TABLE figures ADD COLUMN gallery_urls TEXT")
 
         cursor.execute(
             '''
@@ -57,6 +62,7 @@ def create_tables():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 mfc_id INTEGER NOT NULL,
                 source TEXT NOT NULL,
+                shop TEXT,
                 price REAL NOT NULL,
                 currency TEXT NOT NULL,
                 item_condition TEXT,
@@ -74,6 +80,16 @@ def create_tables():
             CREATE INDEX IF NOT EXISTS idx_price_history_mfc_date ON price_history(mfc_id, recorded_at)
             '''
         )
+
+        price_history_columns = {
+            row[1] for row in cursor.execute("PRAGMA table_info(price_history)")
+        }
+        if "shop" not in price_history_columns:
+            cursor.execute("ALTER TABLE price_history ADD COLUMN shop TEXT")
+        if "external_product_id" not in price_history_columns:
+            cursor.execute(
+                "ALTER TABLE price_history ADD COLUMN external_product_id TEXT"
+            )
         
         cursor.execute(
             '''

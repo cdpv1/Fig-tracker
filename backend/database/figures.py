@@ -1,3 +1,5 @@
+import json
+
 from .connection import get_connection
 
 # Retrieves all figures from the figures table
@@ -48,15 +50,15 @@ def delete_figure(figure_id):
 # inserts or updates a figure in the figures table by ID
 
 
-def upsert_figure(mfc_id, name, mfc_url, picture_url, thumbnail_url, category, scale, height_mm, origin, manufacturer, release_date, barcode, msrp, currency, rating):
+def upsert_figure(mfc_id, name, mfc_url, picture_url, thumbnail_url, category, scale, height_mm, origin, manufacturer, release_date, barcode, msrp, currency, rating, gallery_urls=None):
     conn = get_connection()
     cursor = conn.cursor()
     try:
         cursor.execute(
             '''
-            INSERT INTO figures (mfc_id, name, mfc_url, picture_url, thumbnail_url, category, scale, height_mm, origin, manufacturer, release_date, barcode, msrp, currency, rating) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(mfc_id) DO UPDATE SET name=excluded.name, mfc_url=excluded.mfc_url, picture_url=excluded.picture_url, thumbnail_url=excluded.thumbnail_url, category=excluded.category, scale=excluded.scale, height_mm=excluded.height_mm, origin=excluded.origin, manufacturer=excluded.manufacturer, release_date=excluded.release_date, barcode=excluded.barcode, msrp=excluded.msrp, currency=excluded.currency, rating=excluded.rating
-            ''', (mfc_id, name, mfc_url, picture_url, thumbnail_url, category, scale, height_mm, origin, manufacturer, release_date, barcode, msrp, currency, rating))
+            INSERT INTO figures (mfc_id, name, mfc_url, picture_url, thumbnail_url, category, scale, height_mm, origin, manufacturer, release_date, barcode, msrp, currency, rating, gallery_urls) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(mfc_id) DO UPDATE SET name=excluded.name, mfc_url=excluded.mfc_url, picture_url=excluded.picture_url, thumbnail_url=excluded.thumbnail_url, category=excluded.category, scale=excluded.scale, height_mm=excluded.height_mm, origin=excluded.origin, manufacturer=excluded.manufacturer, release_date=excluded.release_date, barcode=excluded.barcode, msrp=excluded.msrp, currency=excluded.currency, rating=excluded.rating, gallery_urls=excluded.gallery_urls
+            ''', (mfc_id, name, mfc_url, picture_url, thumbnail_url, category, scale, height_mm, origin, manufacturer, release_date, barcode, msrp, currency, rating, json.dumps(gallery_urls or [])))
         conn.commit()
     except:
         conn.rollback()
