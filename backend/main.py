@@ -1,6 +1,6 @@
 from datetime import date
 import json
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Query
 from fastapi.responses import Response
 from urllib.parse import urlparse
 # from mfc_api import MFCClient
@@ -8,11 +8,12 @@ from backend.database.db_setup import create_tables
 from backend.database.collection import get_collection, get_collection_by_id, update_collection
 from backend.database.figures import get_figure_by_id, get_figures, delete_figure, upsert_figure
 from pydantic import BaseModel
-from backend.services.mfc import create_mfc_client, get_mfc_figure, get_owned_collection_ids, fetch_mfc_image
+from backend.services.mfc import create_mfc_client, get_mfc_figure, get_owned_collection_ids, fetch_cached_mfc_image
 from backend.services.helpers import _full_size_nsp_url
 from backend.services.sync import sync_owned_collection, create_sync_job, get_sync_job
 from backend.services.enums import FigureStatus
 from backend.config import MFC_USERNAME
+from backend.services.pricing.provider_status import get_provider_status
 
 app = FastAPI()
 create_tables()
@@ -94,11 +95,11 @@ def get_mfc_image_endpoint(mfc_id: int):
     if parsed.hostname not in ("myfigurecollection.net", "static.myfigurecollection.net"):
         raise HTTPException(status_code=400, detail="Unsupported image host.")
     try:
-        content, content_type = fetch_mfc_image(image_url)
+        content, content_type = fetch_cached_mfc_image(image_url)
         return Response(
             content=content,
             media_type=content_type,
-            headers={"Cache-Control": "no-store"},
+            headers={"Cache-Control": "public, max-age=86400"},
         )
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Unable to fetch MFC image: {e}")
@@ -126,11 +127,11 @@ def get_mfc_gallery_image_endpoint(mfc_id: int, image_index: int):
         raise HTTPException(status_code=400, detail="Unsupported image host.")
 
     try:
-        content, content_type = fetch_mfc_image(image_url)
+        content, content_type = fetch_cached_mfc_image(image_url)
         return Response(
             content=content,
             media_type=content_type,
-            headers={"Cache-Control": "no-store"},
+            headers={"Cache-Control": "public, max-age=86400"},
         )
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Unable to fetch MFC image: {e}")
@@ -147,8 +148,11 @@ def delete_figure_endpoint(mfc_id: int):
 
 # Get the collection of figures
 @app.get("/api/collection", tags=["Collection"])
-def get_collection_endpoint():
-    return get_collection()
+def get_collection_endpoint(
+    limit: int = Query(48, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+):
+    return get_collection(limit=limit, offset=offset)
 
 # Get collection info by MFC ID
 @app.get("/api/collection/{mfc_id}", tags=["Collection"])
@@ -245,3 +249,8 @@ def get_price_history_endpoint(mfc_id: int):
 def get_price_summary_endpoint(mfc_id: int):
     from backend.database.prices import get_price_summary
     return get_price_summary(mfc_id)
+
+
+@app.get("/api/prices/providers/status", tags=["Prices"])
+def get_price_provider_status_endpoint():
+    return get_provider_status()

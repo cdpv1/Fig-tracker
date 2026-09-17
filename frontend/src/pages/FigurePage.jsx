@@ -1,9 +1,49 @@
-import { ActionIcon, Container, Divider, Grid, Group, Stack, Title, Text, Badge, Paper, Image, Button, Checkbox, TextInput, Textarea, NumberInput, Alert, Table, Box, Modal } from "@mantine/core"
+import { ActionIcon, Container, Divider, Grid, Group, Stack, Title, Text, Badge, Paper, Image, Button, Checkbox, TextInput, Textarea, NumberInput, Alert, Table, Box, Modal, SimpleGrid, Skeleton } from "@mantine/core"
 import { useForm } from '@mantine/form';
 import { DateInput } from '@mantine/dates';
 import { useEffect, useRef, useState } from "react"
 import { useParams } from "react-router-dom"
 import {CaretLeftIcon, CaretRightIcon} from '@phosphor-icons/react';
+
+function FigurePageSkeleton() {
+    return (
+        <Container size="xl">
+            <Paper shadow="xs" radius="md" p="xl" w="100%">
+                <Grid>
+                    <Grid.Col span={{ base: 12, md: 5 }}>
+                        <Skeleton height={350} radius="md" />
+                        <Group gap="xs" mt="md">
+                            <Skeleton height={64} width={64} radius="sm" />
+                            <Skeleton height={64} width={64} radius="sm" />
+                            <Skeleton height={64} width={64} radius="sm" />
+                        </Group>
+                    </Grid.Col>
+                    <Grid.Col span={{ base: 12, md: 7 }}>
+                        <Stack gap="md">
+                            <Skeleton height={32} width="80%" radius="sm" />
+                            <Skeleton height={18} width="45%" radius="sm" />
+                            <Group gap="xs">
+                                <Skeleton height={24} width={84} radius="sm" />
+                                <Skeleton height={24} width={96} radius="sm" />
+                                <Skeleton height={24} width={72} radius="sm" />
+                            </Group>
+                            <Divider />
+                            <Skeleton height={18} width="35%" radius="sm" />
+                            <Skeleton height={42} radius="sm" />
+                            <Skeleton height={42} radius="sm" />
+                            <Skeleton height={100} radius="sm" />
+                        </Stack>
+                    </Grid.Col>
+                </Grid>
+                <Divider my="xl" />
+                <Stack gap="md">
+                    <Skeleton height={24} width="30%" radius="sm" />
+                    <Skeleton height={120} radius="sm" />
+                </Stack>
+            </Paper>
+        </Container>
+    )
+}
 
 function FigurePage() {
     const { mfc_id } = useParams()
@@ -14,6 +54,7 @@ function FigurePage() {
     const [saving, setSaving] = useState(false)
     const [saveError, setSaveError] = useState(null)
     const [priceHistory, setPriceHistory] = useState([])
+    const [priceSummary, setPriceSummary] = useState(null)
     const [galleryImages, setGalleryImages] = useState([])
     const [selectedImageIndex, setSelectedImageIndex] = useState(0)
     const [imageModalOpened, setImageModalOpened] = useState(false)
@@ -168,6 +209,18 @@ function FigurePage() {
             .catch((error) => {
                 console.error('Error fetching price history:', error)
             })
+
+        fetch(`/api/prices/${mfc_id}/summary`)
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`)
+                }
+                return response.json()
+            })
+            .then((data) => setPriceSummary(data))
+            .catch((error) => {
+                console.error('Error fetching price summary:', error)
+            })
     }, [mfc_id])
 
     useEffect(() => {
@@ -179,7 +232,7 @@ function FigurePage() {
     }, [selectedImageIndex])
 
     if (loading) {
-        return <p>Loading figure...</p>
+        return <FigurePageSkeleton />
     }
 
     if (error) {
@@ -370,6 +423,34 @@ function FigurePage() {
                 </Paper>
                 <Divider my="md" />
                 <Paper shadow="xs" radius="md" p="xl" w="100%">
+                    <Title order={2} mb="md">
+                        Market Prices
+                    </Title>
+                    {!priceSummary?.markets?.length ? (
+                        <Text c="dimmed">No market summary yet.</Text>
+                    ) : (
+                        <Stack gap="lg">
+                            {priceSummary.markets.map((market) => (
+                                <Stack key={market.currency} gap="sm">
+                                    <Title order={3}>{market.currency}</Title>
+                                    <SimpleGrid cols={{ base: 2, sm: 4 }}>
+                                        <MarketStat label="Average" value={formatPrice(market.average, market.currency)} />
+                                        <MarketStat label="Lowest" value={formatPrice(market.minimum, market.currency)} />
+                                        <MarketStat label="Highest" value={formatPrice(market.maximum, market.currency)} />
+                                        <MarketStat label="In stock" value={`${market.in_stock_count} shops`} />
+                                    </SimpleGrid>
+                                    <Text size="sm" c="dimmed">
+                                        {market.shops?.length
+                                            ? `Available from ${market.shops.join(', ')}`
+                                            : 'No in-stock shops in the latest observations'}
+                                    </Text>
+                                </Stack>
+                            ))}
+                        </Stack>
+                    )}
+                </Paper>
+                <Divider my="md" />
+                <Paper shadow="xs" radius="md" p="xl" w="100%">
                     <Group justify="space-between" align="center" mb="md">
                         <Group gap="sm" align="center">
                             <Title>My Collection</Title>
@@ -485,6 +566,7 @@ function FigurePage() {
                             <Table.Thead>
                                 <Table.Tr>
                                     <Table.Th>Source</Table.Th>
+                                    <Table.Th>Shop</Table.Th>
                                     <Table.Th>Price</Table.Th>
                                     <Table.Th>Condition</Table.Th>
                                     <Table.Th>Availability</Table.Th>
@@ -496,8 +578,9 @@ function FigurePage() {
                                 {priceHistory.map((record) => (
                                     <Table.Tr key={record.id}>
                                         <Table.Td>{record.source}</Table.Td>
+                                        <Table.Td>{record.shop || '—'}</Table.Td>
                                         <Table.Td>
-                                            {record.price} {record.currency}
+                                            {formatPrice(record.price, record.currency)}
                                         </Table.Td>
                                         <Table.Td>{record.item_condition || '—'}</Table.Td>
                                         <Table.Td>{record.availability || '—'}</Table.Td>
@@ -542,24 +625,24 @@ function FigurePage() {
                             <ActionIcon
                                 onClick={showPreviousImage}
                                 aria-label="Show previous image"
-                                variant="default"
-                                radius="xl"
+                                variant="light"
+                                radius="m"
                                 size="lg"
                                 opacity={0.7}
                                 style={{ pointerEvents: 'auto' }}
                             >
-                                ‹
+                                <CaretLeftIcon size={32} />
                             </ActionIcon>
                             <ActionIcon
                                 onClick={showNextImage}
                                 aria-label="Show next image"
-                                variant="default"
-                                radius="xl"
+                                variant="light"
+                                radius="m"
                                 size="lg"
                                 opacity={0.7}
                                 style={{ pointerEvents: 'auto' }}
                             >
-                                ›
+                                <CaretRightIcon size={32} />
                             </ActionIcon>
                         </Box>
                     )}
@@ -567,6 +650,25 @@ function FigurePage() {
             </Modal>
         </Container >
     )
+}
+
+function MarketStat({ label, value }) {
+    return (
+        <Paper withBorder p="sm">
+            <Text size="xs" c="dimmed">{label}</Text>
+            <Text fw={600}>{value}</Text>
+        </Paper>
+    )
+}
+
+function formatPrice(value, currency) {
+    if (value === null || value === undefined) {
+        return '—'
+    }
+    return `${Number(value).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    })} ${currency}`
 }
 
 export default FigurePage

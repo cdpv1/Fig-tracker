@@ -1,6 +1,7 @@
 import re
 import time
 import json
+from threading import Lock
 from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup
@@ -35,6 +36,17 @@ _TEXT_PRICE_RE = re.compile(
 )
 
 _client = None
+_REQUEST_LOCK = Lock()
+_NEXT_REQUEST_AT = 0.0
+
+
+def _wait_for_request():
+    global _NEXT_REQUEST_AT
+    with _REQUEST_LOCK:
+        wait = _NEXT_REQUEST_AT - time.monotonic()
+        if wait > 0:
+            time.sleep(wait)
+        _NEXT_REQUEST_AT = time.monotonic() + REQUEST_DELAY
 
 
 def _session():
@@ -50,7 +62,7 @@ def get_buy_listings(mfc_id: int) -> list[dict]:
     html = None
     for attempt in range(REQUEST_RETRIES + 1):
         try:
-            time.sleep(REQUEST_DELAY if attempt == 0 else REQUEST_DELAY * attempt)
+            _wait_for_request()
             resp = _session().post(
                 BUY_URL.format(mfc_id=mfc_id),
                 headers={
@@ -120,7 +132,7 @@ def _parse_row(mfc_id: int, row: str) -> dict | None:
 def _fetch_link_price(url: str) -> tuple[float | None, str | None]:
     """Resolve an MFC affiliate link and extract a shop page price."""
     try:
-        time.sleep(REQUEST_DELAY)
+        _wait_for_request()
         response = _session().get(
             urljoin(BUY_URL.format(mfc_id=0), url),
             timeout=20,
@@ -142,12 +154,13 @@ def _fetch_link_price(url: str) -> tuple[float | None, str | None]:
         except json.JSONDecodeError:
             continue
         price, currency = _price_from_json_ld(data)
-        if price is not None and currency:
+        if price is not None and currency and _json_ld_has_product(data):
             return price, currency.upper()
 
     price_tag = soup.select_one('[itemprop="price"][content]')
     currency_tag = soup.select_one('[itemprop="priceCurrency"][content]')
-    if price_tag and currency_tag:
+    name_tag = soup.select_one('[itemprop="name"], meta[property="og:title"]')
+    if price_tag and currency_tag and name_tag:
         try:
             return float(price_tag["content"].replace(",", "")), currency_tag["content"].upper()
         except (KeyError, ValueError):
@@ -155,13 +168,15 @@ def _fetch_link_price(url: str) -> tuple[float | None, str | None]:
 
     price_m = _META_PRICE_RE.search(html)
     currency_m = _META_CURRENCY_RE.search(html)
-    if price_m and currency_m:
+    if price_m and currency_m and soup.title and soup.title.get_text(strip=True):
         try:
             return float(price_m.group(1).replace(",", "")), currency_m.group(1).upper()
         except ValueError:
             pass
 
     text = soup.get_text(" ", strip=True)
+    if not soup.title or not soup.title.get_text(strip=True):
+        return None, None
     text_price_m = _TEXT_PRICE_RE.search(text)
     if not text_price_m:
         return None, None
@@ -179,6 +194,23 @@ def _fetch_link_price(url: str) -> tuple[float | None, str | None]:
         return float(amount.replace(",", "")), currency.upper()
     except (AttributeError, ValueError):
         return None, None
+
+
+def _json_ld_has_product(data) -> bool:
+    if isinstance(data, list):
+        return any(_json_ld_has_product(item) for item in data)
+    if not isinstance(data, dict):
+        return False
+    product_type = data.get("@type")
+    if product_type == "Product" or (
+        isinstance(product_type, list) and "Product" in product_type
+    ):
+        return bool(data.get("name") or data.get("sku") or data.get("productID"))
+    return any(
+        _json_ld_has_product(value)
+        for value in data.values()
+        if isinstance(value, (dict, list))
+    )
 
 
 def _price_from_json_ld(data) -> tuple[float | None, str | None]:

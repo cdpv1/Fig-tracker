@@ -1,29 +1,88 @@
 import { useState, useEffect } from 'react'
 import FigureCard from '../components/FigureCard.jsx'
-import { Container, SimpleGrid, Group, Button, Text, Modal, Stack, Loader, Progress } from '@mantine/core'
+import FigureCardSkeleton from '../components/FigureCardSkeleton.jsx'
+import { Container, SimpleGrid, Group, Button, Text, Modal, Stack, Loader, Progress, Card, Badge, Pagination } from '@mantine/core'
 
 // import FigureModal from '../components/FigureModal'
 function CollectionPage() {
     const [collection, setCollection] = useState([])
+    const [collectionTotal, setCollectionTotal] = useState(0)
+    const [collectionPage, setCollectionPage] = useState(1)
+    const [collectionLoading, setCollectionLoading] = useState(true)
     const [syncModalOpen, setSyncModalOpen] = useState(false)
     const [syncStatus, setSyncStatus] = useState(null)
     const [syncProcessed, setSyncProcessed] = useState(0)
     const [syncTotal, setSyncTotal] = useState(0)
     const [syncError, setSyncError] = useState(null)
+    const [providerStatus, setProviderStatus] = useState([])
+    const collectionPageSize = 24
 
     // const [selectedFigure, setSelectedFigure] = useState(null)
 
     useEffect(() => {
-        fetch('/api/collection')
-            .then((response) => response.json())
-            .then((data) => setCollection(data))
-            .catch((error) => console.error('Error fetching collection:', error))
+        const controller = new AbortController()
+        const offset = (collectionPage - 1) * collectionPageSize
+        fetch(`/api/collection?limit=${collectionPageSize}&offset=${offset}`, {
+            signal: controller.signal,
+        })
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`)
+                }
+                return response.json()
+            })
+            .then((data) => {
+                setCollection(data.items)
+                setCollectionTotal(data.total)
+                setCollectionLoading(false)
+            })
+            .catch((error) => {
+                if (error.name !== 'AbortError') {
+                    console.error('Error fetching collection:', error)
+                    setCollectionLoading(false)
+                }
+            })
+        return () => controller.abort()
+    }, [collectionPage])
+
+    useEffect(() => {
+        let active = true
+        let timeoutId
+        const loadProviderStatus = () => {
+            fetch('/api/prices/providers/status')
+                .then((response) => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`)
+                    }
+                    return response.json()
+                })
+                .then((data) => {
+                    if (active) {
+                        setProviderStatus(data)
+                        if (data.some((provider) => provider.status === 'running')) {
+                            timeoutId = setTimeout(loadProviderStatus, 5000)
+                        }
+                    }
+                })
+                .catch((error) => console.error('Error fetching provider status:', error))
+        }
+
+        loadProviderStatus()
+        return () => {
+            active = false
+            clearTimeout(timeoutId)
+        }
     }, [])
 
     const syncPercent =
         syncTotal > 0
             ? (syncProcessed / syncTotal) * 100
             : 0
+
+    const handleCollectionPageChange = (page) => {
+        setCollectionLoading(true)
+        setCollectionPage(page)
+    }
 
     const handleSync = async () => {
         setSyncModalOpen(true)
@@ -66,7 +125,10 @@ function CollectionPage() {
                 await new Promise(resolve => setTimeout(resolve, 500))
             }
 
-            const collectionResponse = await fetch('/api/collection')
+            const offset = (collectionPage - 1) * collectionPageSize
+            const collectionResponse = await fetch(
+                `/api/collection?limit=${collectionPageSize}&offset=${offset}`
+            )
 
             if (!collectionResponse.ok) {
                 throw new Error(`HTTP ${collectionResponse.status}`)
@@ -74,7 +136,9 @@ function CollectionPage() {
 
             const collectionData = await collectionResponse.json()
             await new Promise(resolve => setTimeout(resolve, 1000)) // Wait for 1 second before closing the modal
-            setCollection(collectionData)
+            setCollection(collectionData.items)
+            setCollectionTotal(collectionData.total)
+            setCollectionLoading(false)
             setSyncStatus('completed')
         } catch (error) {
             console.error('Error syncing collection:', error)
@@ -89,21 +153,54 @@ function CollectionPage() {
         <Container fluid>
             <Group justify="space-between" align="center" mb="md">
                 <Text c="dimmed">
-                    {collection.length} figures
+                    {collectionTotal} figures
                 </Text>
 
                 <Group>
-                    <Button onClick={handleSync} loading={setSyncStatus === 'starting' || setSyncStatus === 'in_progress'}>
+                    <Button onClick={handleSync} loading={syncStatus === 'starting' || syncStatus === 'in_progress'}>
                         Sync MFC
                     </Button>
                 </Group>
             </Group>
+            {providerStatus.length > 0 && (
+                <Card withBorder mb="md" padding="sm">
+                    <Group gap="sm">
+                        <Text fw={500}>Price sources</Text>
+                        {providerStatus.map((provider) => (
+                            <Badge
+                                key={provider.provider}
+                                color={provider.status === 'available'
+                                    ? 'green'
+                                    : provider.status === 'running'
+                                        ? 'blue'
+                                        : 'orange'}
+                                variant="light"
+                                title={provider.error || undefined}
+                            >
+                                {provider.provider}: {provider.status}
+                            </Badge>
+                        ))}
+                    </Group>
+                </Card>
+            )}
             <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 4, xl: 8 }} spacing="lg">
-                {collection.map((figure) => (
-                    <FigureCard key={figure.mfc_id} figure={figure} />
-                ))}
+                {collectionLoading
+                    ? Array.from({ length: collectionPageSize }, (_, index) => (
+                        <FigureCardSkeleton key={`skeleton-${index}`} />
+                    ))
+                    : collection.map((figure) => (
+                        <FigureCard key={figure.mfc_id} figure={figure} />
+                    ))}
             </SimpleGrid>
-            {/* <FigureModal selectedFigure={selectedFigure} opened={selectedFigure !== null} onClose={() => setSelectedFigure(null)}></FigureModal> */}
+            {collectionTotal > collectionPageSize && (
+                <Group justify="center" mt="xl">
+                    <Pagination
+                        value={collectionPage}
+                        onChange={handleCollectionPageChange}
+                        total={Math.ceil(collectionTotal / collectionPageSize)}
+                    />
+                </Group>
+            )}
             <Modal
                 opened={syncModalOpen}
                 onClose={() => {
@@ -115,6 +212,7 @@ function CollectionPage() {
                 closeOnEscape={false}
                 title="Sync MFC Collection"
                 centered
+                overlayProps={{ backgroundOpacity: 0.75, blur: 3 }}
             >
                 <Stack align="center" gap="md">
                     {syncStatus !== 'completed' && syncStatus !== 'failed' && (

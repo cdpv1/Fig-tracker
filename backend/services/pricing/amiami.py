@@ -1,5 +1,7 @@
 import json
 import re
+import time
+from threading import Lock
 from urllib.parse import quote, urljoin
 
 from bs4 import BeautifulSoup
@@ -11,6 +13,13 @@ SEARCH_URL = f"{BASE_URL}/eng/search/list/?s_keywords={{query}}"
 API_URL = "https://api.amiami.com/api/v1.0/items"
 API_HEADERS = {"X-User-Key": "amiami_dev"}
 MAX_SEARCH_QUERIES = 10
+REQUEST_INTERVAL = 3.0
+RATE_LIMIT_COOLDOWN = 120.0
+_REQUEST_LOCK = Lock()
+_NEXT_REQUEST_AT = 0.0
+_RATE_LIMITED_UNTIL = 0.0
+_SEARCH_CACHE = {}
+_PRODUCT_CACHE = {}
 
 
 def find_amiami_product(figure):
@@ -24,7 +33,9 @@ def find_amiami_product(figure):
         for candidate in search_amiami(barcode):
             candidates_by_url.setdefault(candidate["url"], candidate)
         for candidate in candidates_by_url.values():
-            product = get_amiami_product(candidate["url"])
+            if _cooldown_active():
+                return None
+            product = _candidate_product(candidate)
             if product and str(product.get("barcode") or "").strip() == barcode:
                 product["match_method"] = "barcode"
                 product["match_score"] = 100
@@ -55,9 +66,13 @@ def find_amiami_product(figure):
         print(f"[amiami] searching {query!r}")
         for candidate in search_amiami(query):
             candidates_by_url.setdefault(candidate["url"], candidate)
+        if _cooldown_active():
+            return None
 
     for candidate in candidates_by_url.values():
-        product = get_amiami_product(candidate["url"])
+        if _cooldown_active():
+            return None
+        product = _candidate_product(candidate)
         if not product:
             continue
         product_barcode = str(product.get("barcode") or "").strip()
@@ -91,14 +106,19 @@ def find_amiami_product(figure):
 
 
 def search_amiami(query):
+    query = re.sub(r"\s+", " ", query).strip()
+    if query in _SEARCH_CACHE:
+        return _SEARCH_CACHE[query]
+
     try:
-        response = requests.get(
+        response = _api_get(
             API_URL,
             headers=API_HEADERS,
             params={"pagemax": 20, "lang": "eng", "s_keywords": query},
-            impersonate="chrome",
             timeout=20,
         )
+        if response is None:
+            return []
         response.raise_for_status()
         payload = response.json()
         api_candidates = [
@@ -107,17 +127,19 @@ def search_amiami(query):
             if item.get("gcode") and item.get("gname")
         ]
         if api_candidates:
+            _SEARCH_CACHE[query] = api_candidates
             return api_candidates
     except Exception as exc:
         print(f"[amiami] API search failed for {query!r}: {exc}")
 
     # Older/site-rendered fallback.
     try:
-        response = requests.get(
+        response = _api_get(
             SEARCH_URL.format(query=quote(query)),
-            impersonate="chrome",
             timeout=20,
         )
+        if response is None:
+            return []
         response.raise_for_status()
     except Exception as exc:
         print(f"[amiami] search failed for {query!r}: {exc}")
@@ -138,6 +160,7 @@ def search_amiami(query):
         seen.add(url)
         candidates.append({"name": link.get_text(" ", strip=True), "url": url})
     if candidates:
+        _SEARCH_CACHE[query] = candidates
         return candidates
 
     # Keep this fallback deliberately narrow: only accept AmiAmi detail URLs
@@ -160,31 +183,84 @@ def _api_candidate(item):
     }
 
 
+def _candidate_product(candidate):
+    item = candidate.get("api_item")
+    if item:
+        return _product_from_api_item(item, candidate["url"])
+    return get_amiami_product(candidate["url"])
+
+
 def get_amiami_product(url):
+    if url in _PRODUCT_CACHE:
+        return _PRODUCT_CACHE[url]
+    if _cooldown_active():
+        return None
+
     gcode = re.search(r"[?&]gcode=([^&]+)", url)
     if gcode:
         try:
-            response = requests.get(
-                API_URL,
-                headers=API_HEADERS,
+            response = _api_get(
+                API_URL, headers=API_HEADERS,
                 params={"pagemax": 20, "lang": "eng", "s_keywords": gcode.group(1)},
-                impersonate="chrome",
                 timeout=20,
             )
+            if response is None:
+                return None
             response.raise_for_status()
             for item in response.json().get("items") or []:
                 if item.get("gcode") == gcode.group(1):
-                    return _product_from_api_item(item, url)
+                    product = _product_from_api_item(item, url)
+                    _PRODUCT_CACHE[url] = product
+                    return product
         except Exception as exc:
             print(f"[amiami] API product request failed for {url}: {exc}")
 
     try:
-        response = requests.get(url, impersonate="chrome", timeout=20)
+        if _cooldown_active():
+            return None
+        response = _api_get(url, timeout=20)
+        if response is None:
+            return None
         response.raise_for_status()
     except Exception as exc:
         print(f"[amiami] product request failed for {url}: {exc}")
         return None
-    return _parse_product(response.text, url)
+    product = _parse_product(response.text, url)
+    _PRODUCT_CACHE[url] = product
+    return product
+
+
+def _api_get(url, **kwargs):
+    global _NEXT_REQUEST_AT, _RATE_LIMITED_UNTIL
+    now = time.monotonic()
+    if now < _RATE_LIMITED_UNTIL:
+        print("[amiami] rate-limit cooldown active; skipping request")
+        return None
+
+    with _REQUEST_LOCK:
+        wait = _NEXT_REQUEST_AT - time.monotonic()
+        if wait > 0:
+            time.sleep(wait)
+        response = requests.get(url, impersonate="chrome", **kwargs)
+        _NEXT_REQUEST_AT = time.monotonic() + REQUEST_INTERVAL
+        if int(response.status_code) == 429:
+            retry_after = response.headers.get("Retry-After")
+            try:
+                cooldown = max(RATE_LIMIT_COOLDOWN, float(retry_after))
+            except (TypeError, ValueError):
+                cooldown = RATE_LIMIT_COOLDOWN
+            _RATE_LIMITED_UNTIL = time.monotonic() + cooldown
+            print(f"[amiami] HTTP 429; pausing requests for {cooldown:.0f}s")
+            return None
+        return response
+
+
+def _cooldown_active():
+    return time.monotonic() < _RATE_LIMITED_UNTIL
+
+
+def is_rate_limited():
+    return _cooldown_active()
 
 
 def _product_from_api_item(item, url):

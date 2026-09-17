@@ -23,15 +23,30 @@ def upsert_collection_status(mfc_id, status: FigureStatus):
 # retrieves all figures in the collection table
 
 
-def get_collection():
+def get_collection(limit=None, offset=0):
     conn = get_connection()
     cursor = conn.cursor()
     try:
-        collection = cursor.execute(
-            'SELECT c.mfc_id, f.name, f.picture_url, f.manufacturer, f.category, f.scale, f.height_mm, c.status FROM collection c JOIN figures f ON c.mfc_id = f.mfc_id').fetchall()
-        if not collection:
-            return []
-        return [dict(item) for item in collection]
+        total = cursor.execute(
+            'SELECT COUNT(*) FROM collection c JOIN figures f ON c.mfc_id = f.mfc_id'
+        ).fetchone()[0]
+        query = '''
+            SELECT c.mfc_id, f.name, f.picture_url, f.manufacturer,
+                   f.category, f.scale, f.height_mm, c.status
+            FROM collection c
+            JOIN figures f ON c.mfc_id = f.mfc_id
+        '''
+        parameters = []
+        if limit is not None:
+            query += ' LIMIT ? OFFSET ?'
+            parameters.extend((limit, offset))
+        collection = cursor.execute(query, parameters).fetchall()
+        return {
+            "items": [dict(item) for item in collection],
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+        }
     finally:
         conn.close()
 

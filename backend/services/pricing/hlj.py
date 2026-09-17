@@ -5,18 +5,34 @@ from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 import re
 from itertools import combinations
+from threading import Lock
+import time
 
 BASE_URL = "https://www.hlj.com"
 MAX_SEARCH_QUERIES = 12
 _SEARCH_CACHE = {}
 _PRODUCT_CACHE = {}
+REQUEST_INTERVAL = 2.0
+_REQUEST_LOCK = Lock()
+_NEXT_REQUEST_AT = 0.0
+
+
+def _request(url, **kwargs):
+    global _NEXT_REQUEST_AT
+    with _REQUEST_LOCK:
+        wait = _NEXT_REQUEST_AT - time.monotonic()
+        if wait > 0:
+            time.sleep(wait)
+        response = requests.get(url, impersonate="chrome", **kwargs)
+        _NEXT_REQUEST_AT = time.monotonic() + REQUEST_INTERVAL
+        return response
 
 
 def get_hlj_product(product_url):
     if product_url in _PRODUCT_CACHE:
         return _PRODUCT_CACHE[product_url]
 
-    response = requests.get(product_url, impersonate="chrome")
+    response = _request(product_url, timeout=30)
 
     response.raise_for_status()
 
@@ -183,10 +199,10 @@ def search_hlj(query):
     if query in _SEARCH_CACHE:
         return _SEARCH_CACHE[query]
 
-    response = requests.get(
+    response = _request(
         f"{BASE_URL}/search/",
         params={"Word": query},
-        impersonate="chrome",
+        timeout=30,
     )
 
     response.raise_for_status()

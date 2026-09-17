@@ -1,3 +1,5 @@
+import re
+
 from .connection import get_connection
 from .figures import get_figure_by_id
 
@@ -47,19 +49,23 @@ def get_effective_barcode(mfc_id):
 
     # 1. your hand-check always wins
     for row in rows:
-        if row["confidence"] == "user_verified":
+        if row["confidence"] == "user_verified" and is_valid_barcode(row["value"]):
             return row["value"]
     # 2. then anything two independent sources agreed on
     for row in rows:
-        if row["confidence"] == "confirmed":
+        if row["confidence"] == "confirmed" and is_valid_barcode(row["value"]):
             return row["value"]
     # 3. then the MFC mirror
     figure = get_figure_by_id(mfc_id)
-    if figure and figure.get("barcode"):
-        return figure["barcode"]
+    if figure and is_valid_barcode(figure.get("barcode")):
+        return str(figure["barcode"]).strip()
     # 4. then a single unverified claim (better than nothing)
     for row in rows:
-        if row["confidence"] == "unverified":
+        if row["confidence"] == "unverified" and is_valid_barcode(row["value"]):
             return row["value"]
     # conflict rows are skipped on purpose: a human resolves those
     return None
+
+
+def is_valid_barcode(value):
+    return bool(re.fullmatch(r"\d{8,14}", str(value or "").strip()))

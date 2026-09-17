@@ -17,6 +17,24 @@ def get_price_history(mfc_id):
     finally:
         conn.close()
 
+
+def get_latest_listing(mfc_id, source):
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            '''
+            SELECT listing_url
+            FROM price_history
+            WHERE mfc_id = ? AND source = ? AND listing_url IS NOT NULL
+            ORDER BY recorded_at DESC, id DESC
+            LIMIT 1
+            ''',
+            (mfc_id, source),
+        ).fetchone()
+        return row["listing_url"] if row else None
+    finally:
+        conn.close()
+
 # inserts a new price history record for a figure
 
 
